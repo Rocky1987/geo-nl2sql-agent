@@ -64,7 +64,7 @@ eval/GeoNl2Sql.Eval/
 ### 3.1 環境事實
 
 - 本機 SQL Server 2022 Express 16.0.1000.6，執行個體 `.\SQLEXPRESS`，Windows 驗證可連（已實測）。
-- 該執行個體已有使用者另一個資料庫 `FreeWayDB`，**本專案不得讀寫**。新建資料庫 `GeoNl2SqlDemo`。
+- 本專案只建立並使用資料庫 `GeoNl2SqlDemo`，不讀寫同一執行個體上的其他資料庫；`seed` 只會 `DROP` 這個名稱的資料庫（§3.5）。
 - 設定分兩種情境（鍵名皆為 `ConnectionStrings:Demo`，後讀的來源覆蓋先讀的）：
   - **本機開發**：放 user-secrets，不進 git（Eval 的 `UserSecretsId` 已存在）：
 
@@ -273,7 +273,7 @@ M1 結束時更新 `feasibility-report.md`，新增「M1 實測紀錄」，包�
 
 | 步驟 | 內容 | 驗證（做完要看到什麼） | 需要金鑰 | 狀態 |
 |---|---|---|---|---|
-| S1 | `db/01_schema.sql`、`seed` 建庫骨架 | `GeoNl2SqlDemo` 建立成功；`spike_reader` 存在；`FreeWayDB` 沒被動到 | 否 | 完成 |
+| S1 | `db/01_schema.sql`、`seed` 建庫骨架 | `GeoNl2SqlDemo` 建立成功；`spike_reader` 存在；同一執行個體上的其他資料庫沒被動到 | 否 | 完成 |
 | S2 | Bogus 資料與寫入 | 各表筆數符合 §3.2；**連跑兩次雜湊相同**；`geography` 欄位 `STArea()`／`STIsValid()` 合理 | 否 | 完成 |
 | S3 | 30 題與標準 SQL | 標準 SQL 全部可執行且非空；打上凍結 tag | 否 | 完成（tag `m1-questions-frozen`） |
 | S4 | spike 腳本 | 以 3 題煙霧測試：能抽出 SQL、執行、比對、寫 JSON；刻意餵一個含 `DROP` 的假回應，確認被擋下 | 否 | 完成 |

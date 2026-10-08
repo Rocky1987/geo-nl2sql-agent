@@ -14,7 +14,7 @@
 
 | # | 作者決議 | 本版處理 |
 |---|---|---|
-| D1 | .NET 9 太舊就升 10 | 採 **.NET 10 LTS / C# 14**；.NET 10 SDK 已安裝（10.0.401），專案暫為 `net9.0`（見 §5 M0 實測紀錄） |
+| D1 | .NET 9 太舊就升 10 | 原決議採 **.NET 10 LTS / C# 14**；目前專案暫為 `net9.0`（見 §5 M0 實測紀錄），使用者只需安裝 .NET 9 SDK |
 | D2 | 企業主流用 AF 就用 AF | 採 **Microsoft Agent Framework 1.x**（`Microsoft.Agents.AI` 1.23.0）；不使用 Semantic Kernel，也不必再切抽象縫 |
 | D3 | Llama-3 8B 跑不動就降級；或花少量費用接雲端閉源模型錄 Demo | **雙軌保留**：雲端閉源模型為「主軌」（Demo／評估數據），本機小模型為「副軌」（證明可切換、誠實呈現落差）。兩者都經 `IChatClient` 接入 |
 | D4 | 不必強調 ISO 27001 控制項 | **移除**控制項對應矩陣與 ISO 42001／EU AI Act 對應；保留「實作得出來、說得清楚、測得出數字」的實務防護 |
@@ -144,7 +144,7 @@
 |---|---|---|
 | CPU／RAM | Ryzen 7 7700（8C/16T）／31.1 GB | ✅ 足夠 |
 | GPU | GTX 1650，4 GB VRAM | 只能跑 3B 級；7B 需 CPU 卸載 |
-| .NET | SDK 9.0.306 與 10.0.401 並存（`global.json` 鎖 9.0.306，專案暫為 `net9.0`，見 §5 M0 實測紀錄） | ✅ 待 VS 2026 後改回 `net10.0` |
+| .NET | 專案為 `net9.0`，`global.json` 鎖 SDK 9.0.306（見 §5 M0 實測紀錄） | ✅ 只需 .NET 9 SDK |
 | SQL Server | 2022 Express RTM 16.0.1000.6，服務執行中；空間與 ledger 實測可用；M2 起已改為混合驗證（供 `geo_reader` SQL login） | ✅ 開發期夠用；建議順手套用最新 CU |
 | Docker／Ollama | Docker 29.8.2、Ollama 0.40.0 已安裝（Docker 尚未用於本專案，M6 才使用） | ✅ |
 | Git／sqlcmd | 2.51.1／16.0.1000.6 | ✅ 已 `git init` 並推上 GitHub |
@@ -155,7 +155,7 @@
 
 | 類別 | 項目 | 成本 |
 |---|---|---|
-| 軟體 | .NET 10 SDK、Docker Desktop（含 WSL2）、Ollama、VS Code 或 Visual Studio | 免費 |
+| 軟體 | .NET 9 SDK（目前目標框架）、Docker Desktop（含 WSL2）、Ollama、VS Code 或 Visual Studio | 免費 |
 | 帳號 | 雲端模型 API 帳號 + 月預算上限 | 少量測試費 |
 | 帳號 | GitHub 公開儲存庫（啟用 secret scanning、Actions） | 免費 |
 | 資料 | 合成資料（建議 `Bogus` 套件、固定種子）+ 行政區界（開放資料或合成） | 免費 |

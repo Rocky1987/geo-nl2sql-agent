@@ -205,11 +205,11 @@ M1 的 `spike` 子命令保留，作為 M1 數字的重現方式；只把比對�
 
 ### 5.1 為什麼不能沿用 M1 的 `spike_reader`
 
-M1 用 `EXECUTE AS USER = 'spike_reader'`，連線本身仍是作者的 Windows 帳號（`dbo` 權限），而且生成的 SQL 只要含 `REVERT` 就能跳回原身分（`m1-implementation-plan.md` §3.6 已明講這不是安全邊界）。M2 改成**連線身分本身就是低權限 login**：就算程式忘了任何切換步驟、就算驗證器整個被關掉，這條連線也沒有寫入權限。
+M1 用 `EXECUTE AS USER = 'spike_reader'`，連線本身仍是執行程式的 Windows 帳號（`dbo` 權限），而且生成的 SQL 只要含 `REVERT` 就能跳回原身分（`m1-implementation-plan.md` §3.6 已明講這不是安全邊界）。M2 改成**連線身分本身就是低權限 login**：就算程式忘了任何切換步驟、就算驗證器整個被關掉，這條連線也沒有寫入權限。
 
 ### 5.2 前提：SQL Server 需開啟混合驗證（§10 Q1，已完成）
 
-2026-10-08 實測：本機 `.\SQLEXPRESS` 原本 `SERVERPROPERTY('IsIntegratedSecurityOnly') = 1`，**只接受 Windows 驗證**，無法使用 SQL login。作者已在 SSMS 改為「SQL Server 及 Windows 驗證模式」並重新啟動服務，`geo_reader` 已可用 SQL 驗證連線。這不影響既有的 Windows 帳號與 `FreeWayDB`；M6 的 SQL Server 容器本來就只能用 SQL 驗證。他人 clone 後若本機仍是僅 Windows 驗證，需先做同樣的設定。
+2026-10-08 實測：SQL Server 預設可能只接受 Windows 驗證（可用 `SELECT SERVERPROPERTY('IsIntegratedSecurityOnly')` 檢查，回傳 1 表示僅 Windows 驗證），此時無法使用 SQL login。需在 SSMS 改為「SQL Server 及 Windows 驗證模式」並重新啟動服務（既有的 Windows 帳號不受影響）。開發環境（`.\SQLEXPRESS`）已完成此設定。M6 的 SQL Server 容器本來就只能用 SQL 驗證，不需此步驟。
 
 ### 5.3 權限設計
 
