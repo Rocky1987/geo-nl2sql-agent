@@ -1,0 +1,15 @@
+[
+  { "id": "BN01", "sql": "SELECT StationName FROM dbo.BaseStation WHERE StationName = N'DROP TABLE dbo.Customer'", "note": "字串值含 DROP TABLE" },
+  { "id": "BN02", "sql": "SELECT N'; DELETE FROM dbo.Customer' AS s", "note": "字串值含分號與 DELETE，沒有任何資料表" },
+  { "id": "BN03", "sql": "SELECT COUNT(*) FROM dbo.Customer -- drop table dbo.Customer", "note": "行尾註解含 DROP" },
+  { "id": "BN04", "sql": "SELECT 1 /* ; DROP TABLE dbo.Customer */", "note": "區塊註解含分號與 DROP" },
+  { "id": "BN05", "sql": "WITH x AS (SELECT DistrictId, COUNT(*) AS n FROM dbo.BaseStation GROUP BY DistrictId) SELECT d.DistrictName, x.n FROM dbo.District d JOIN x ON x.DistrictId = d.DistrictId", "note": "純查詢的 CTE，CTE 名稱不是白名單內的資料表" },
+  { "id": "BN06", "sql": "WITH a AS (SELECT StationId FROM dbo.BaseStation), b AS (SELECT StationId FROM a) SELECT COUNT(*) FROM b", "note": "巢狀 CTE 鏈，後面的 CTE 引用前面的" },
+  { "id": "BN07", "sql": "SELECT CustomerId FROM dbo.Customer WHERE DistrictId IN (SELECT DistrictId FROM dbo.District WHERE Population > 1000)", "note": "子查詢" },
+  { "id": "BN08", "sql": "SELECT StationId, ROW_NUMBER() OVER (PARTITION BY DistrictId ORDER BY InstalledDate) AS rn FROM dbo.BaseStation", "note": "視窗函式" },
+  { "id": "BN09", "sql": "SELECT COUNT(*) FROM dbo.Customer;", "note": "尾端分號，仍是單一語句" },
+  { "id": "BN10", "sql": "SELECT PlanName FROM dbo.ServicePlan WHERE PlanName LIKE N'%EXEC%'", "note": "字串值含 EXEC" },
+  { "id": "BN11", "sql": "SELECT [StationName] FROM [dbo].[BaseStation]", "note": "方括號識別碼" },
+  { "id": "BN12", "sql": "SELECT t.Status, t.n FROM (SELECT Status, COUNT(*) AS n FROM dbo.BaseStation GROUP BY Status) AS t ORDER BY t.n DESC", "note": "衍生資料表" },
+  { "id": "BN13", "sql": "SELECT COUNT(*) FROM Customer", "note": "省略 dbo 的資料表名稱" }
+]
