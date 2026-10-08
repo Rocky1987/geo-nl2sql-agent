@@ -5,6 +5,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Bogus" Version="35.6.5" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />
@@ -21,6 +23,8 @@
 
   <ItemGroup>
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- seed 子命令在執行時讀取此檔，所以連結並複製到輸出目錄的 db/ 下 -->
+    <None Include="..\..\db\01_schema.sql" Link="db\01_schema.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

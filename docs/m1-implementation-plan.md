@@ -110,8 +110,10 @@ eval/GeoNl2Sql.Eval/
 
 1. 連 `master`，若 `GeoNl2SqlDemo` 存在則 `DROP`（僅限此名稱）後重建。
 2. 執行 `db/01_schema.sql`（以 `GO` 切批）。
-3. 以 Bogus 產生資料，用 `SqlBulkCopy` 寫入（`geography` 欄位傳 `SqlGeography`，需引用 `Microsoft.SqlServer.Types` 相容型別；若 `Microsoft.Data.SqlClient` 對 `geography` 的寫入遇到型別問題，退而用 `geography::STGeomFromText` 的 SQL 參數化插入。此為 S2 要先驗證的風險）。
-4. 印出各表筆數與內容雜湊。
+3. 以 Bogus 產生資料並寫入：含 `geography` 的兩張表（`District`、`BaseStation`）用 `geography::STGeomFromText(@wkt, 4326)` 的參數化 INSERT，其餘四張表用 `SqlBulkCopy`。
+   - **實作時的決定（S2）**：原計畫是先驗證 `SqlBulkCopy` 能否寫入 `geography`，失敗再退回參數化 INSERT。因為 `Microsoft.Data.SqlClient` 沒有 `geography` 的 .NET 型別，S2 直接採用備案；資料量小（9 + 200 列），效能沒有影響。
+4. 印出各表筆數、內容雜湊（SHA-256 前 16 碼）與 `geography` 有效性檢查。連跑兩次，雜湊應完全相同（A1）。
+5. 安全限制：連線字串的資料庫名稱不是 `GeoNl2SqlDemo` 時，直接拒絕執行。
 
 ### 3.6 spike 專用唯讀執行身分
 

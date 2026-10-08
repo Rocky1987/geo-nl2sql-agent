@@ -48,6 +48,14 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello                              #
 dotnet run --project eval/GeoNl2Sql.Eval -- hello Anthropic claude-haiku-4-5   # 雲端
 ```
 
+## 建立示範資料庫
+
+需先設定 `ConnectionStrings:Demo`（資料庫名稱必須是 `GeoNl2SqlDemo`）。此命令會刪除並重建該資料庫，不會動其他資料庫；固定種子，每次產生的資料都相同。
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- seed
+```
+
 ## 授權
 
 MIT
@@ -102,6 +110,14 @@ dotnet user-secrets set "ConnectionStrings:Demo" "<connection string>" --project
 ```powershell
 dotnet run --project eval/GeoNl2Sql.Eval -- hello                              # local Ollama
 dotnet run --project eval/GeoNl2Sql.Eval -- hello Anthropic claude-haiku-4-5   # cloud
+```
+
+### Create the demo database
+
+Set `ConnectionStrings:Demo` first (the database name must be `GeoNl2SqlDemo`). This command drops and recreates that database only and never touches any other; the seed is fixed, so the generated data is identical every run.
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- seed
 ```
 
 ### License
