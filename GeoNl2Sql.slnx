@@ -4,8 +4,6 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/GeoNl2Sql.Core/GeoNl2Sql.Core.csproj" />
-    <Project Path="src/GeoNl2Sql.Data/GeoNl2Sql.Data.csproj" />
-    <Project Path="src/GeoNl2Sql.Orchestration/GeoNl2Sql.Orchestration.csproj" />
     <Project Path="src/GeoNl2Sql.Web/GeoNl2Sql.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">

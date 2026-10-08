@@ -19,9 +19,7 @@
 | 層 | 專案 | 說明 |
 |---|---|---|
 | Web | `GeoNl2Sql.Web` | ASP.NET Core MVC（Controller + Razor View），Leaflet 地圖 |
-| 編排 | `GeoNl2Sql.Orchestration` | Agent Framework、模型工廠、護欄 |
-| 資料 | `GeoNl2Sql.Data` | SQL Server 存取、空間查詢 |
-| 核心 | `GeoNl2Sql.Core` | 共用型別與介面 |
+| 核心 | `GeoNl2Sql.Core` | Agent Framework、模型工廠、護欄、SQL Server 存取與空間查詢（以資料夾區分，不另拆專案） |
 | 測試 | `tests/GeoNl2Sql.Tests` | 單元測試（可離線執行） |
 | 評估 | `eval/GeoNl2Sql.Eval` | hello-agent、評估與消融實驗 |
 
@@ -73,9 +71,7 @@ This is a portfolio project: all data is synthetic, and no real customer or comp
 | Layer | Project | Notes |
 |---|---|---|
 | Web | `GeoNl2Sql.Web` | ASP.NET Core MVC (controllers + Razor views), Leaflet map |
-| Orchestration | `GeoNl2Sql.Orchestration` | Agent Framework, model factory, guardrails |
-| Data | `GeoNl2Sql.Data` | SQL Server access, spatial queries |
-| Core | `GeoNl2Sql.Core` | Shared types and interfaces |
+| Core | `GeoNl2Sql.Core` | Agent Framework, model factory, guardrails, SQL Server access and spatial queries (separated by folders, not by projects) |
 | Tests | `tests/GeoNl2Sql.Tests` | Unit tests (run offline) |
 | Eval | `eval/GeoNl2Sql.Eval` | hello-agent, evaluation and ablations |
 

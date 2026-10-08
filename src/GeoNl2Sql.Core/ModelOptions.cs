@@ -1,4 +1,4 @@
-namespace GeoNl2Sql.Orchestration;
+namespace GeoNl2Sql.Core;
 
 public enum ModelProvider
 {

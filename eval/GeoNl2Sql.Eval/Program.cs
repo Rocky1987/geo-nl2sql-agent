@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using GeoNl2Sql.Orchestration;
+using GeoNl2Sql.Core;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;

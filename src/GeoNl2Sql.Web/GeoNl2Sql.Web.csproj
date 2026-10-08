@@ -1,9 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\GeoNl2Sql.Orchestration\GeoNl2Sql.Orchestration.csproj" />
     <ProjectReference Include="..\GeoNl2Sql.Core\GeoNl2Sql.Core.csproj" />
-    <ProjectReference Include="..\GeoNl2Sql.Data\GeoNl2Sql.Data.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

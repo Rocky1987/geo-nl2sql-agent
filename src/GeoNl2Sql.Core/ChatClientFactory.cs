@@ -2,7 +2,7 @@ using Anthropic;
 using Microsoft.Extensions.AI;
 using OllamaSharp;
 
-namespace GeoNl2Sql.Orchestration;
+namespace GeoNl2Sql.Core;
 
 /// <summary>Single place that turns configuration into an <see cref="IChatClient"/>, so callers never see the provider.</summary>
 public static class ChatClientFactory
