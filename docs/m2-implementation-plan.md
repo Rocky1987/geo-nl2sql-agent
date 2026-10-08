@@ -28,7 +28,7 @@
 
 | # | 條件 | 理由 |
 |---|---|---|
-| B7 | 驗證器對**正常查詢的誤擋率為 0**：30 題標準 SQL 與約 10 條「看起來可疑但其實無害」的查詢（例如字串值裡含 `DROP`）全部放行 | 阻擋率 100% 很容易用「全部擋掉」做到；誤擋率才證明白名單設計得對 |
+| B7 | 驗證器對**正常查詢的誤擋率為 0**：30 題標準 SQL 與 13 條「看起來可疑但其實無害」的查詢（例如字串值裡含 `DROP`）全部放行 | 阻擋率 100% 很容易用「全部擋掉」做到；誤擋率才證明白名單設計得對 |
 
 **B1 的「M1 基線」**：正式管線用「有欄位說明」的 schema，所以對照組是 C2（`claude-haiku-4-5`，described）**30/30**。M1 三輪結果完全一致（溫度 0），SQL 生成的 prompt 照搬 M1 就應重現相同結果；若低於 30/30，要逐題判定是「驗證器誤擋」（必須修）還是「模型非確定性」（公開說明）。本機 `qwen2.5:3b` 照樣量測並記錄，不設及格線（同 M1 A4）。
 
@@ -163,11 +163,11 @@ M1 的 `spike` 子命令保留，作為 M1 數字的重現方式；只把比對�
 ### 3.3 正常查詢集（B7）
 
 - **30 題標準 SQL**：直接讀 `eval/GeoNl2Sql.Eval/Questions/questions.json`（csproj 以 `Link` 複製到測試輸出目錄），不另抄一份。
-- **`benign-sql.json`，約 10 條**刻意貼近攻擊外觀的合法查詢：字串值含關鍵字（`WHERE StationName = N'DROP TABLE'`、`N'; DELETE'`）、查詢內含註解（`SELECT 1 -- drop`）、含 CTE 的純查詢、子查詢、`ROW_NUMBER() OVER (…)`、尾端分號（`SELECT … ;` 單一語句）。
+- **`benign-sql.json`，13 條**刻意貼近攻擊外觀的合法查詢：字串值含關鍵字（`WHERE StationName = N'DROP TABLE'`、`N'; DELETE'`）、查詢內含註解（`SELECT 1 -- drop`）、含 CTE 的純查詢、子查詢、`ROW_NUMBER() OVER (…)`、尾端分號（`SELECT … ;` 單一語句）。
 
 ### 3.4 驗證（S1 的完成條件）
 
-- 兩個 JSON 檔可被解析，筆數 60 與約 10，`id` 不重複，每類筆數符合 §3.2。
+- 兩個 JSON 檔可被解析，筆數 60 與 13，`id` 不重複，每類筆數符合 §3.2。
 - 由作者看過一遍再 commit（commit 訊息註明「驗證器動工前凍結」）。
 
 ---
@@ -185,7 +185,7 @@ M1 的 `spike` 子命令保留，作為 M1 數字的重現方式；只把比對�
 | V5 | 不允許 `OPENROWSET`／`OPENDATASOURCE`／`OPENQUERY`／`OPENXML`／`OPENJSON` 與資料表值函式等非「具名資料表」的來源（衍生資料表 `(SELECT …) AS t` 允許） | 外部資料存取 |
 | V6 | 所有函式呼叫必須在**函式白名單**內（不分大小寫），含 `geography` 的方法呼叫與靜態方法 | 未列出的系統函式、使用者自訂函式 |
 
-函式白名單的來源：30 題標準 SQL 實際用到的（`COUNT`、`SUM`、`AVG`、`ROUND`、`YEAR`、`geography::Point`、`STDistance`、`STIntersects`、`STArea` 等），加上常見且無副作用的聚合、日期、字串、數學與視窗函式（如 `MIN`、`MAX`、`DATEADD`、`DATEDIFF`、`COALESCE`、`ROW_NUMBER`、`STContains`、`STBuffer`、`STAsText`、`Lat`、`Long`）。**`CHAR` 不列入**（題目用不到）。清單寫成程式碼常數並附註解；之後增減都要寫理由。
+函式白名單的來源：30 題標準 SQL 實際用到的（`COUNT`、`SUM`、`AVG`、`ROUND`、`YEAR`、`geography::Point`、`STDistance`、`STIntersects`、`STArea` 等），加上常見且無副作用的聚合、日期、字串、數學與視窗函式（如 `MIN`、`MAX`、`DATEADD`、`DATEDIFF`、`COALESCE`、`ROW_NUMBER`、`STContains`、`STBuffer`、`STAsText`、`STLength`）。**`CHAR` 不列入**（題目用不到）。完整清單見 `SqlValidator.AllowedFunctions`（程式碼常數並附註解；`Lat`、`Long` 未列入，需要時再加）；之後增減都要寫理由。
 
 資料表白名單由建構子傳入（`IReadOnlySet<string>`），不做設定檔機制。M4 改成只開放 `ai` 結構描述的視圖時，換傳入的清單即可。
 
@@ -207,9 +207,9 @@ M1 的 `spike` 子命令保留，作為 M1 數字的重現方式；只把比對�
 
 M1 用 `EXECUTE AS USER = 'spike_reader'`，連線本身仍是作者的 Windows 帳號（`dbo` 權限），而且生成的 SQL 只要含 `REVERT` 就能跳回原身分（`m1-implementation-plan.md` §3.6 已明講這不是安全邊界）。M2 改成**連線身分本身就是低權限 login**：就算程式忘了任何切換步驟、就算驗證器整個被關掉，這條連線也沒有寫入權限。
 
-### 5.2 前提：SQL Server 需開啟混合驗證（§10 Q1）
+### 5.2 前提：SQL Server 需開啟混合驗證（§10 Q1，已完成）
 
-2026-10-08 實測：本機 `.\SQLEXPRESS` 的 `SERVERPROPERTY('IsIntegratedSecurityOnly') = 1`，**只接受 Windows 驗證**，無法使用 SQL login。需要由作者在 SSMS 改為「SQL Server 及 Windows 驗證模式」並重新啟動服務。這不影響既有的 Windows 帳號與 `FreeWayDB`；而 M6 的 SQL Server 容器本來就只能用 SQL 驗證，遲早需要。
+2026-10-08 實測：本機 `.\SQLEXPRESS` 原本 `SERVERPROPERTY('IsIntegratedSecurityOnly') = 1`，**只接受 Windows 驗證**，無法使用 SQL login。作者已在 SSMS 改為「SQL Server 及 Windows 驗證模式」並重新啟動服務，`geo_reader` 已可用 SQL 驗證連線。這不影響既有的 Windows 帳號與 `FreeWayDB`；M6 的 SQL Server 容器本來就只能用 SQL 驗證。他人 clone 後若本機仍是僅 Windows 驗證，需先做同樣的設定。
 
 ### 5.3 權限設計
 
@@ -360,13 +360,13 @@ dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？"
 | S6 | `pipeline`、`ask` 子命令 | 雲端 described ≥ 30/30；誤擋 0；本機量到數字 | 金鑰、資料庫 | 1 日 |
 | S7 | 文件、commit、`v0.1.0` | M2 驗收項目全勾 | 作者確認 tag | 1 日 |
 
-S1、S2、S4、S5 都不需要資料庫與金鑰，可以在 Q1 決定前先做。建議的 commit 切點：S1 一個（凍結）、S2 一個、S3 一個、S4+S5 一個、S6+S7 一個。
+S1、S2、S4、S5 都不需要資料庫與金鑰。進度：S1、S2 完成；S3 的 login 與權限完成（Q1 已決定並落實），執行器與邊界測試未寫；S4–S7 未開始。建議的 commit 切點：S1 一個（凍結）、S2 一個、S3 一個、S4+S5 一個、S6+S7 一個。
 
 ### 10.2 需要作者決定的事
 
 | # | 問題 | 建議 | 影響 |
 |---|---|---|---|
-| Q1 | 本機 SQL Server 是否改為**混合驗證**以建立 `geo_reader` login | **改**。M6 容器本來就需要 SQL 驗證；備案是 `EXECUTE AS USER … WITH NO REVERT` 搭配不進連線池的連線（無法被 `REVERT` 跳出，但連線身分仍是作者帳號，說服力較弱） | S3 開始前必須決定 |
+| Q1 | 本機 SQL Server 是否改為**混合驗證**以建立 `geo_reader` login | **已決定：改，且已完成（2026-10-08）**。M6 容器本來就需要 SQL 驗證；未採用的備案是 `EXECUTE AS USER … WITH NO REVERT` 搭配不進連線池的連線（無法被 `REVERT` 跳出，但連線身分仍是作者帳號，說服力較弱） | S3 開始前必須決定 |
 | Q2 | M2 用程式控制的管線，AF 工具迴圈延到 M3（§2.2） | **同意延後** | 不影響 S1–S4 |
 
 ---
@@ -379,5 +379,5 @@ S1、S2、S4、S5 都不需要資料庫與金鑰，可以在 Q1 決定前先做�
 | 驗證器在真實模型輸出上誤擋（標準 SQL 沒用到、模型卻常用的函式） | B1 低於基線 | S6 統計誤擋；補白名單並寫理由；不得為了提高準確率放寬 V1–V5 |
 | 錯誤消毒降低自我修正效果 | 修正後準確率下降 | 照實記錄；雲端單次即 30/30，預期不受影響 |
 | 暫存表無法以 DB 權限擋住 | B3 無法宣稱「完全無 DDL」 | `dbExpect = tempdb_only` 明列例外；宣稱範圍限定為「GeoNl2SqlDemo 內的永久物件」 |
-| 混合驗證未開啟 | S3 卡住 | 先做 S1、S2、S4、S5；Q1 備案見 §10.2 |
+| 混合驗證未開啟 | S3 卡住 | 已排除：混合驗證已開（§5.2）；Q1 備案見 §10.2，未採用 |
 | 回答步驟把查詢結果（含個資欄位）送到雲端模型 | 個資外洩疑慮 | M2 資料全為合成，可接受；正式處理（遮蔽視圖、資料進模型前遮蔽）屬 M4，並在紀錄中註明 |

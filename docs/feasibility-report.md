@@ -14,7 +14,7 @@
 
 | # | 作者決議 | 本版處理 |
 |---|---|---|
-| D1 | .NET 9 太舊就升 10 | 採 **.NET 10 LTS / C# 14**；本機需安裝 .NET 10 SDK（現僅有 9.0.306） |
+| D1 | .NET 9 太舊就升 10 | 採 **.NET 10 LTS / C# 14**；.NET 10 SDK 已安裝（10.0.401），專案暫為 `net9.0`（見 §5 M0 實測紀錄） |
 | D2 | 企業主流用 AF 就用 AF | 採 **Microsoft Agent Framework 1.x**（`Microsoft.Agents.AI` 1.23.0）；不使用 Semantic Kernel，也不必再切抽象縫 |
 | D3 | Llama-3 8B 跑不動就降級；或花少量費用接雲端閉源模型錄 Demo | **雙軌保留**：雲端閉源模型為「主軌」（Demo／評估數據），本機小模型為「副軌」（證明可切換、誠實呈現落差）。兩者都經 `IChatClient` 接入 |
 | D4 | 不必強調 ISO 27001 控制項 | **移除**控制項對應矩陣與 ISO 42001／EU AI Act 對應；保留「實作得出來、說得清楚、測得出數字」的實務防護 |
@@ -35,13 +35,13 @@
 | 雙軌模型 | ✅ 介面可行 ⚠️ 品質不等價 | 經 `Microsoft.Extensions.AI`（10.10.0）的 `IChatClient` 抽換；本機用 `OllamaSharp` 5.5.0；雲端用該廠商 SDK（Anthropic 12.53.0）或 OpenAI 相容端點 |
 | NL2SQL + 精簡 schema 注入 | ✅ 可行 | 作品集的 schema 自己設計，規模可控（10–15 張表），不需 schema 檢索 |
 | SQL 破壞性指令阻擋 | ✅ 可做到 100% | 用 `Microsoft.SqlServer.TransactSql.ScriptDom` 180.117.0 解析 AST 做白名單，**不要用字串黑名單**；再搭配 DB 層唯讀 |
-| 唯讀隔離 | ✅ 可行 | 獨立 login + 只授權 `ai` schema 的視圖 + `DENY` 寫入／EXEC |
+| 唯讀隔離 | ✅ 可行 | 獨立 login（`geo_reader`）+ `DENY` 寫入／EXEC；M2 先授權 `dbo` schema 的 SELECT，M4 再收斂為只授權 `ai` schema 的遮蔽視圖 |
 | 自我修正 | ✅ 可行 | 有界重試（上限 2 次）；回饋給模型的錯誤訊息要消毒 |
 | GIS（GeoJSON／質心／緩衝區） | ✅ 可行，有陷阱 | 見 §1.3：質心走 geometry 轉換、緩衝區用 `geography.STBuffer`；SQL Server 沒有 GeoJSON，用 `NetTopologySuite` 2.6.0 + `NetTopologySuite.IO.GeoJSON` 4.0.0 組裝，`ProjNet` 2.1.0 僅作驗證對照 |
 | Prompt Injection 防禦 | ⚠️ 可緩解、不可根除 | 做成「多層防禦 + 攻擊語料庫 + 實測數字」，這正是履歷上最有說服力的呈現 |
 | PII 角色化遮蔽 | ✅ 可行 | 遮蔽必須發生在**資料進入 LLM 之前**（§1.2） |
 | 稽核軌跡 | ✅ 可行（選配） | 一般稽核表即可滿足作品集；想加分用 `LEDGER = ON`（本機 Express 實測可用） |
-| Docker Compose | ⚠️ 部分調整 | 本機**未安裝 Docker／WSL2**；Ollama 建議**原生跑在 Windows 主機**，Compose 只編排 App + SQL Server（§1.4） |
+| Docker Compose | ⚠️ 部分調整 | 本機已安裝 Docker Desktop（M6 才使用）；Ollama 建議**原生跑在 Windows 主機**，Compose 只編排 App + SQL Server（§1.4） |
 | 評估管線 | ✅ 可行 | 資料與標準答案都由作者掌握，難度由 v1 的 L5 降為 L3 |
 | Web 層 + 地圖 | ✅ 可行（新增建議） | 採 **ASP.NET Core MVC**（Controller + Razor View，符合作者既有技術線；2026-10-07 決議）；頁面以 Leaflet 顯示 GeoJSON，是 Demo 影片最有視覺說服力的部分。查詢以 Controller action 提供，另保留 JSON 端點供評估程式呼叫 |
 
@@ -128,10 +128,10 @@
 
 | ID | 未知數 | 如何收斂 |
 |---|---|---|
-| U1 | AF 1.23.0 套件實際支援的目標框架是否涵蓋 .NET 10（本次 NuGet TFM 查詢沒有回傳結果，**未驗證**） | M0 在 .NET 10 專案 `dotnet add package` 並跑 hello-agent |
-| U2 | 經 `IChatClient` 呼叫 Ollama 小模型時，AF 的 function calling 是否穩定 | M0 以單一工具實測 20 次，記錄成功率 |
-| U3 | 雲端模型選哪一家／哪一級最划算（準確率對價格） | M1 對 30 題小標準集比較 2–3 個候選 |
-| U4 | Anthropic SDK 是否原生提供 `IChatClient` 轉接 | M0 查套件文件；若無，改用 OpenAI 相容端點或自寫薄轉接層 |
+| U1 | AF 1.23.0 套件實際支援的目標框架是否涵蓋 .NET 10（NuGet TFM 查詢沒有回傳結果） | **已解決（M0）**：.NET 10 與 .NET 9 皆可還原、建置、測試通過 |
+| U2 | 經 `IChatClient` 呼叫 Ollama 小模型時，AF 的 function calling 是否穩定 | **已解決（M0）**：`qwen2.5:3b` 20/20；`qwen2.5-coder:3b` 失敗（§5 M0 實測紀錄） |
+| U3 | 雲端模型選哪一家／哪一級最划算（準確率對價格） | M1 實際只量了 `claude-haiku-4-5`（30/30，described），未比較其他候選；目前不需要再比 |
+| U4 | Anthropic SDK 是否原生提供 `IChatClient` 轉接 | **已解決（M0）**：Anthropic SDK 12.53.0 提供 `AsIChatClient` |
 | U5 | 可用的開放行政區界資料格式與授權 | M1 前確認；備案為合成多邊形 |
 
 ---
@@ -144,10 +144,12 @@
 |---|---|---|
 | CPU／RAM | Ryzen 7 7700（8C/16T）／31.1 GB | ✅ 足夠 |
 | GPU | GTX 1650，4 GB VRAM | 只能跑 3B 級；7B 需 CPU 卸載 |
-| .NET | 僅 SDK 9.0.306（另有 8.0 與 6.0 runtime） | **需安裝 .NET 10 SDK** |
-| SQL Server | 2022 Express RTM 16.0.1000.6，服務執行中；空間與 ledger 實測可用 | ✅ 開發期夠用；建議順手套用最新 CU |
-| Docker／WSL2／Ollama | 皆未安裝 | M0 安裝 |
-| Git／sqlcmd | 2.51.1／16.0.1000.6 | ✅ 專案目錄尚未 `git init` |
+| .NET | SDK 9.0.306 與 10.0.401 並存（`global.json` 鎖 9.0.306，專案暫為 `net9.0`，見 §5 M0 實測紀錄） | ✅ 待 VS 2026 後改回 `net10.0` |
+| SQL Server | 2022 Express RTM 16.0.1000.6，服務執行中；空間與 ledger 實測可用；M2 起已改為混合驗證（供 `geo_reader` SQL login） | ✅ 開發期夠用；建議順手套用最新 CU |
+| Docker／Ollama | Docker 29.8.2、Ollama 0.40.0 已安裝（Docker 尚未用於本專案，M6 才使用） | ✅ |
+| Git／sqlcmd | 2.51.1／16.0.1000.6 | ✅ 已 `git init` 並推上 GitHub |
+
+（本表初稿為 2026-10-07 的實測；上列已於 2026-10-08 依現況更新。）
 
 ### 4.2 待準備清單
 
@@ -215,7 +217,7 @@ M7 收尾：README、影片 (模組13)            ──► v1.0.0
 - [x] 30 題小標準集（含單表、多表 JOIN、聚合、空間查詢各類）在**凍結後**才開始測（tag `m1-questions-frozen`）
 - [x] 以約 165 行腳本（不用框架）量測單次生成準確率，雲端模型單次 **83.3%**（plain）／**100%**（described），一次修正後同為 **83.3%／100%**，兩者皆 ≥ 60%／≥ 75% 門檻
 - [x] 本機小模型已量到數字（L1 12/30、L2 13/30、L3 14/30），不設及格線
-- 雲端單次已達 60% 以上：**不需要**啟動 §6.3 的改善迴圈。詳見 §7「M1 實測紀錄」
+- 雲端單次已達 60% 以上：**不需要**啟動 M1 實作計畫 §6.3 的改善迴圈。詳見 §7「M1 實測紀錄」
 
 **M2｜NL2SQL 核心 + 確定性安全邊界（約 9 人日）→ 打 `v0.1.0`**
 - [ ] 端到端：自然語言 → SQL → 驗證 → 唯讀執行 → 回答，30 題準確率不低於 M1 基線
@@ -272,7 +274,7 @@ ISO 控制項對應矩陣、外部紅隊、多租戶、負載測試到 50 併發
 **M0 已解決 tool calling 的不確定性**：`qwen2.5-coder:3b` 的 tool calling 失敗（純文字輸出，見 §5 U2），換成 `qwen2.5:3b`（同為 1.9 GB 等級）後 20 次全部成功，目前本機軌已固定使用 `qwen2.5:3b`。**NL2SQL 準確率已由 M1 實測取代推測**（見 §7）：三組本機結果落在 12–14/30（40–47%），遠低於雲端的 83–100%；直覺「3B 在多表 JOIN 與空間函式上會吃力」得到證實，且主因是語法／方言層級的錯誤（CTE 作用域、幻覺欄位名、T-SQL 方言、geography 方法呼叫語法），不是 schema 描述或題目設計的問題。本機軌的定位確定為「證明架構可切換＋誠實呈現落差」，不是準確率賣點。
 
 **2. AF 1.x 在 .NET 10 上的實際 API 細節與套件相容性。**
-我確認了套件與版本存在（`Microsoft.Agents.AI` 1.23.0、`.OpenAI` 1.23.0、`Microsoft.Extensions.AI` 10.10.0），也查到 AF 有三層中介層，但**沒有實際跑過**，而且目標框架查詢沒有拿到結果。我不確定的有：中介層攔截函式呼叫的確切寫法、Anthropic SDK 是否能直接當 `IChatClient`、AF 對 .NET 10 的支援是否有未預期的限制。網路上另有第三方護欄套件（如 AgentGuard）可用，但我傾向自己實作以便展示能力，這是取捨，不是已驗證的最佳解。這一項風險不高，但寫程式前應先做 M0。
+原評估時只確認了套件與版本存在（`Microsoft.Agents.AI` 1.23.0、`.OpenAI` 1.23.0、`Microsoft.Extensions.AI` 10.10.0）與三層中介層，沒有實際跑過。**M0 已解決其中兩項**：Anthropic SDK 可直接當 `IChatClient`（U4）、AF 在 .NET 10 與 .NET 9 皆可建置（U1）。**仍未驗證**的是中介層攔截函式呼叫的確切寫法（M2 的管線由程式控制，不經過工具迴圈，到 M3 才會用到）。網路上另有第三方護欄套件（如 AgentGuard）可用，但我傾向自己實作以便展示能力，這是取捨，不是已驗證的最佳解。這一項風險不高。
 
 **3. 評估數字的可信度，以及它對招募方的實際說服力。**
 資料、題目、標準答案都由同一人（作者）產生，容易不自覺地把題目出得「模型答得對」，導致分數偏高。我提出的對策（先凍結題目、公布失敗案例、消融實驗、明講合成資料不外推）能降低風險，但**無法保證招募方如何看待這類數字**，也無法預測哪一種呈現（準確率表、攻擊語料庫、架構圖、影片）最能打動他們。這是對求職市場的判斷而非技術問題，我沒有可靠資料。建議做完 M2 就先公開，並向實際在業界的人要回饋，再決定後續投入哪一塊。
@@ -293,7 +295,7 @@ ISO 控制項對應矩陣、外部紅隊、多租戶、負載測試到 50 併發
 | C1 | `claude-haiku-4-5` | 無描述 | **25/30 (83.3%)** | 25/30 (83.3%) | 6 | 6 | 7 | 6 |
 | C2 | `claude-haiku-4-5` | 有描述 | **30/30 (100%)** | 30/30 (100%) | 8 | 8 | 7 | 7 |
 
-**對照 §5 的 A3 驗收**：C1（決定 A3 的主要數字）單次 83.3% ≥ 60%，一次修正後 83.3% ≥ 75%，**一次達標，M1 通過**；§6.2／§6.3 的改善迴圈（S6）**不需啟動**。
+**對照 M1 實作計畫 §1 的 A3 驗收**：C1（決定 A3 的主要數字）單次 83.3% ≥ 60%，一次修正後 83.3% ≥ 75%，**一次達標，M1 通過**；該計畫 §6.2／§6.3 的改善迴圈（S6）**不需啟動**。
 
 ### 7.2 失敗類型分佈（三輪一致）
 
@@ -333,7 +335,7 @@ C2（described）補上 `flg1`、`Status`、`dt2` 等欄位的語意說明後，
 | 本機 `qwen2.5:3b`（L1→L2） | 12/30 | 13/30 | +1 題（+3.3pp） |
 | 雲端 `claude-haiku-4-5`（C1→C2） | 25/30 | 30/30 | **+5 題（+16.7pp）** |
 
-欄位說明對雲端模型的影響遠大於本機模型：本機模型的失敗以語法層級的 `exec_error` 為主，欄位說明無法修正語法錯誤，所以提升有限；雲端模型的語法已經穩定（0 次 `exec_error`），唯一短板正好是「命名不佳欄位的語意」，欄位說明剛好打中這個短板，所以收益顯著。這也是本專案刻意保留 `flg1`／`dt2` 這類命名不佳欄位的設計目的（§3.2）得到的驗證。
+欄位說明對雲端模型的影響遠大於本機模型：本機模型的失敗以語法層級的 `exec_error` 為主，欄位說明無法修正語法錯誤，所以提升有限；雲端模型的語法已經穩定（0 次 `exec_error`），唯一短板正好是「命名不佳欄位的語意」，欄位說明剛好打中這個短板，所以收益顯著。這也是本專案刻意保留 `flg1`／`dt2` 這類命名不佳欄位的設計目的（M1 實作計畫 §3.2）得到的驗證。
 
 ### 7.5 對 R3 與 §6-1 的回答
 
@@ -342,7 +344,7 @@ C2（described）補上 `flg1`、`Status`、`dt2` 等欄位的語意說明後，
 
 ### 7.6 (a)(b)(c) 改善手段是否需要引入
 
-討論中暫緩的三個改善手段（few-shot 範例、避免巢狀 CTE、更豐富的重試回饋）**不需要為了通過 M1 門檻而引入**——C1 單次 83.3% 已一次達標，§6.2 的改善迴圈只在 40–60% 區間才觸發。
+討論中暫緩的三個改善手段（few-shot 範例、避免巢狀 CTE、更豐富的重試回饋）**不需要為了通過 M1 門檻而引入**——C1 單次 83.3% 已一次達標，M1 實作計畫 §6.2 的改善迴圈只在 40–60% 區間才觸發。
 
 若目的改為「提升本機 3B 模型的準確率」，這三個手段的預期效益有限，因為本機模型的主要失敗模式是語法／方言層級的 `exec_error`（§7.2、§7.3），而這三個手段主要處理的是語意理解與欄位猜測問題（對雲端模型的 `wrong_result` 較對症，對本機模型的 `exec_error` 較不對症）。本機軌的定位本來就是「證明可切換＋誠實呈現落差」而非準確率賣點（§1.5、R3），因此**不建議在 M1／M2 投入時間改善本機模型準確率**；若日後有興趣，屬於 v1.0.0 之後的可選加強項（不做清單之外的「依興趣再加」）。
 
@@ -358,5 +360,5 @@ C2（described）補上 `flg1`、`Status`、`dt2` 等欄位的語意說明後，
 - [Best Ollama models for 4GB VRAM](https://localaimaster.com/vram/best-ollama-models-4gb-vram)
 - [BEAVER: An Enterprise Benchmark for Text-to-SQL](https://arxiv.org/html/2409.02038v3)
 - [Text-to-SQL Benchmarks are Broken: Annotation Errors — CIDR 2026](https://www.vldb.org/cidrdb/papers/2026/p5-jin.pdf)
-- NuGet 版本查核（2026-10-07）：`Microsoft.Agents.AI` 1.23.0、`Microsoft.Agents.AI.OpenAI` 1.23.0、`Microsoft.Extensions.AI` 10.10.0、`Microsoft.Extensions.AI.OpenAI` 10.10.1、`OllamaSharp` 5.5.0、`Anthropic` 12.53.0、`Microsoft.SqlServer.TransactSql.ScriptDom` 180.117.0、`NetTopologySuite` 2.6.0、`NetTopologySuite.IO.GeoJSON` 4.0.0、`ProjNet` 2.1.0、`Microsoft.Data.SqlClient` 7.1.1（**目標框架相容性未驗證**）
+- NuGet 版本查核（2026-10-07）：`Microsoft.Agents.AI` 1.23.0、`Microsoft.Agents.AI.OpenAI` 1.23.0、`Microsoft.Extensions.AI` 10.10.0、`Microsoft.Extensions.AI.OpenAI` 10.10.1、`OllamaSharp` 5.5.0、`Anthropic` 12.53.0、`Microsoft.SqlServer.TransactSql.ScriptDom` 180.117.0、`NetTopologySuite` 2.6.0、`NetTopologySuite.IO.GeoJSON` 4.0.0、`ProjNet` 2.1.0、`Microsoft.Data.SqlClient` 7.1.1（查核當時目標框架相容性未驗證；之後 AF、SqlClient 與 ScriptDom 已在 net9.0 專案實際還原並通過測試）
 - 本機實測：SQL Server 2022 Express 16.0.1000.6（錯誤 6506、24204；`LEDGER = ON` 可用）；硬體與已安裝軟體清單

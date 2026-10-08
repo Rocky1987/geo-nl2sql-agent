@@ -109,7 +109,7 @@ eval/GeoNl2Sql.Eval/
 ### 3.5 `seed` 子命令行為
 
 1. 連 `master`，若 `GeoNl2SqlDemo` 存在則 `DROP`（僅限此名稱）後重建。
-2. 執行 `db/01_schema.sql`（以 `GO` 切批）。
+2. 執行 `db/01_schema.sql`（以 `GO` 切批）。（M2 起，若設定了 `ConnectionStrings:Reader`，seed 還會建立或更新 `geo_reader` login 並執行 `db/02_reader.sql`；未設定則略過，M1 流程不受影響。見 `m2-implementation-plan.md` §5.3。）
 3. 以 Bogus 產生資料並寫入：含 `geography` 的兩張表（`District`、`BaseStation`）用 `geography::STGeomFromText(@wkt, 4326)` 的參數化 INSERT，其餘四張表用 `SqlBulkCopy`。
    - **實作時的決定（S2）**：原計畫是先驗證 `SqlBulkCopy` 能否寫入 `geography`，失敗再退回參數化 INSERT。因為 `Microsoft.Data.SqlClient` 沒有 `geography` 的 .NET 型別，S2 直接採用備案；資料量小（9 + 200 列），效能沒有影響。
 4. 印出各表筆數、內容雜湊（SHA-256 前 16 碼）與 `geography` 有效性檢查。連跑兩次，雜湊應完全相同（A1）。
@@ -265,7 +265,7 @@ M1 結束時更新 `feasibility-report.md`，新增「M1 實測紀錄」，包�
 - **失敗案例分析**：至少列出代表性的 `wrong_result` 與 `exec_error`，附生成 SQL、原因。作品集的賣點是連失敗一併公開（R4）。
 - schema 描述有無的差異。
 - 對 R3（本機小模型是否可用）與 §6-1（3B 準確率的推測）的回答：實測數字取代推測。
-- 勾選 M1 驗收項目；README 的「目前狀態」改為 M1 完成。
+- 勾選 M1 驗收項目。README 不寫里程碑進度（README 是給公開讀者看的用途、內容、亮點與安裝執行說明），進度只記在 docs。
 
 ---
 
@@ -280,7 +280,7 @@ M1 結束時更新 `feasibility-report.md`，新增「M1 實測紀錄」，包�
 | S5a | 本機 L1–L3 全量 3 輪 | 取得三組數字 | 否 | 完成：12/30、13/30、14/30 |
 | S5b | 雲端 C1、C2 全量 3 輪 | 取得 A3 數字 | **是** | 完成：25/30（83.3%）、30/30（100%） |
 | S6 | 視需要的改善迴圈 | 符合 §6.2 決策表 | 視情況 | **未觸發**（C1 單次 83.3% ≥ 60% 一次達標） |
-| S7 | 寫入紀錄、commit、更新 README | 驗收項目全勾 | 否 | 文件更新完成（本次）；commit 待使用者指示 |
+| S7 | 寫入紀錄、commit、更新 README | 驗收項目全勾 | 否 | 完成（commit 18223bd） |
 
 建議的 commit 切點：S1+S2 一個、S3（含凍結 tag）一個、S4 一個、S5 的結果一個。S3 的凍結必須早於 S5 的任何一次模型呼叫。
 
@@ -300,8 +300,8 @@ M1 結束時更新 `feasibility-report.md`，新增「M1 實測紀錄」，包�
 
 ---
 
-## 10. 開始前仍需作者決定或提供
+## 10. 開始前需作者決定或提供（M1 已執行完畢，以下為當時的前置項目）
 
 1. **確認方案**：資料庫名稱 `GeoNl2SqlDemo`、六張表的範圍、行政區用合成 3×3 網格（若想改用真實開放資料，需先確認授權）。
-2. **Anthropic API 金鑰**：由作者自行在 Console 建立並設定 user-secrets；S5b 前需要。不要貼給 AI 助理，也不要寫進任何檔案。
+2. **Anthropic API 金鑰**：由作者自行在 Console 建立並設定 user-secrets；S5b 前需要（已設定）。不要貼給 AI 助理，也不要寫進任何檔案。
 3. **Anthropic 月預算上限**：建議先設定再跑 S5b。
