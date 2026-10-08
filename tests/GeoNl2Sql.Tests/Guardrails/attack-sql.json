@@ -11,7 +11,7 @@
   { "id": "BS01", "category": "batch_separator", "sql": "SELECT 1\nGO\nDROP TABLE dbo.Customer", "note": "GO 不是 T-SQL 語句而是用戶端指令；直接送出時可能被當成別名，DROP 仍會變成下一個語句", "dbExpect": "denied" },
   { "id": "BS02", "category": "batch_separator", "sql": "SELECT 1\r\nGO 5\r\nDROP TABLE dbo.Customer", "note": "帶重複次數的 GO，CRLF 換行", "dbExpect": "denied" },
   { "id": "BS03", "category": "batch_separator", "sql": "SELECT 1\nGO\nINSERT dbo.ServicePlan (PlanId, PlanName, MonthlyFee, DataCapGb) VALUES (96, N'x', 0, 0)", "note": "GO 後接 INSERT", "dbExpect": "denied" },
-  { "id": "BS04", "category": "batch_separator", "sql": "SELECT 1\ngo\nEXEC sp_who", "note": "小寫 go 後接系統預存程序；system 預存程序預設授權給 public，需靠資料庫層級 DENY EXECUTE 擋下（S3 實測確認）", "dbExpect": "denied" },
+  { "id": "BS04", "category": "batch_separator", "sql": "SELECT 1\ngo\nEXEC sp_who", "note": "小寫 go 後接系統預存程序；master 的 sp_who 授權給 public，實測資料庫層級 DENY EXECUTE 擋不住（2026-10-08），只能靠 AST 驗證拒絕", "dbExpect": "read_only" },
 
   { "id": "CM01", "category": "comment", "sql": "SELECT 1 /* x */; /* y */ DELETE dbo.Customer", "note": "區塊註解夾在語句之間", "dbExpect": "denied" },
   { "id": "CM02", "category": "comment", "sql": "SELECT 1 -- harmless\nDROP TABLE dbo.Customer", "note": "行尾註解後換行接 DROP", "dbExpect": "denied" },
@@ -34,7 +34,7 @@
   { "id": "DY03", "category": "dynamic_sql", "sql": "EXEC sp_executesql N'DROP TABLE dbo.Customer'", "note": "sp_executesql 預設授權給 public，但其內的語句仍以呼叫者的權限執行", "dbExpect": "denied" },
   { "id": "DY04", "category": "dynamic_sql", "sql": "DECLARE @s nvarchar(100) = N'DROP TABLE dbo.Customer'; EXEC(@s)", "note": "變數承載動態 SQL", "dbExpect": "denied" },
   { "id": "DY05", "category": "dynamic_sql", "sql": "EXEC xp_cmdshell 'dir'", "note": "作業系統指令", "dbExpect": "denied" },
-  { "id": "DY06", "category": "dynamic_sql", "sql": "EXEC sp_who", "note": "呼叫系統預存程序；預設授權給 public，需靠資料庫層級 DENY EXECUTE 擋下（S3 實測確認）", "dbExpect": "denied" },
+  { "id": "DY06", "category": "dynamic_sql", "sql": "EXEC sp_who", "note": "呼叫系統預存程序；master 的 sp_who 授權給 public，實測資料庫層級 DENY EXECUTE 擋不住（2026-10-08），只能靠 AST 驗證拒絕", "dbExpect": "read_only" },
   { "id": "DY07", "category": "dynamic_sql", "sql": "EXEC('SELECT * FROM dbo.Customer')", "note": "動態執行的內容只是 SELECT：資料庫層擋不住，只能靠 AST 驗證拒絕 EXEC 本身", "dbExpect": "read_only" },
   { "id": "DY08", "category": "dynamic_sql", "sql": "EXEC('INSERT dbo.ServicePlan (PlanId, PlanName, MonthlyFee, DataCapGb) VALUES (97, N''x'', 0, 0)')", "note": "動態執行 INSERT，含轉義的單引號", "dbExpect": "denied" },
   { "id": "DY09", "category": "dynamic_sql", "sql": "DECLARE @t nvarchar(20) = N'Customer'; EXEC(N'DROP TABLE dbo.' + @t)", "note": "字串串接組出表名", "dbExpect": "denied" },

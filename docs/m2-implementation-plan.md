@@ -19,7 +19,7 @@
 |---|---|---|
 | B1 | 端到端：自然語言 → SQL → 驗證 → 唯讀執行 → 回答；30 題準確率**不低於 M1 基線** | S5、S6 |
 | B2 | AST 驗證對 **60 條攻擊 SQL** 阻擋率 **100%** | S1、S2 |
-| B3 | 刻意關閉 AST 驗證後，唯讀 login 仍然無法寫入、無法 DDL、無法 `EXEC`（證明兩層獨立） | S3 |
+| B3 | 刻意關閉 AST 驗證後，唯讀 login 仍然無法寫入、無法 DDL、無法模擬 `dbo`、無法執行本資料庫的預存程序（證明兩層獨立；master 的 public 系統預存程序如 `sp_who` 不在此列，見 §5.3） | S3 |
 | B4 | 逾時與列數上限可由測試觸發；回饋給 LLM 的資料庫錯誤已去除表名／欄位名細節 | S3、S4 |
 | B5 | 自我修正上限 2 次，不會無限迴圈 | S5 |
 | B6 | 單元測試可離線執行（不需模型、不需資料庫） | 全部步驟 |
@@ -220,12 +220,14 @@ M1 用 `EXECUTE AS USER = 'spike_reader'`，連線本身仍是作者的 Windows 
 ```sql
 CREATE USER geo_reader FOR LOGIN geo_reader;
 GRANT SELECT ON SCHEMA::dbo TO geo_reader;
-DENY INSERT, UPDATE, DELETE, EXECUTE, ALTER, REFERENCES, CONTROL, TAKE OWNERSHIP ON SCHEMA::dbo TO geo_reader;
+DENY INSERT, UPDATE, DELETE, EXECUTE, ALTER, REFERENCES, TAKE OWNERSHIP ON SCHEMA::dbo TO geo_reader;
 DENY CREATE TABLE, CREATE VIEW, CREATE PROCEDURE, CREATE FUNCTION, CREATE SCHEMA, CREATE TYPE TO geo_reader;
-DENY EXECUTE TO geo_reader;   -- 資料庫層級：dbo 結構描述的 DENY 管不到 sp_who 這類預設授權給 public 的系統預存程序
+DENY EXECUTE TO geo_reader;   -- 資料庫層級：擋本資料庫內的預存程序
 ```
 
-  最後一行是 S1 設計攻擊語料（`BS04`、`DY06`）時發現的缺口：`DENY EXECUTE ON SCHEMA::dbo` 只管 `dbo` 的預存程序，`sp_who` 等系統預存程序預設授權給 `public`，仍可執行。資料庫層級的 `DENY EXECUTE` 是否足以擋下，**S3 實測確認**；若擋不住，B3 的宣稱要改成「無法 `EXEC` 使用者預存程序與動態 SQL 寫入」，並把這兩條改標 `read_only`。
+  **不可 `DENY CONTROL`**：CONTROL 隱含 SELECT，DENY 優先於 GRANT，會讓 `geo_reader` 連 SELECT 都失效（2026-10-08 首次驗證即踩到，已移除）。
+
+  **已實測的缺口（2026-10-08）**：最後一行的資料庫層級 `DENY EXECUTE` 擋不住 `EXEC sp_who`。`sp_who` 位於 master，授權給 `public`，權限在 master 內判斷，GeoNl2SqlDemo 的 DENY 管不到。`geo_reader` 沒有 `VIEW SERVER STATE`，`sp_who` 只回傳它自己的連線，資訊外洩風險低。因此語料 `BS04`、`DY06` 的 `dbExpect` 已改為 `read_only`（只靠 AST 驗證拒絕），B3 的宣稱已縮限為上表所列範圍。
 
   只 `GRANT SELECT` 其實已經足以擋住寫入，額外的 `DENY` 是第二道保險：即使之後有人誤把 `geo_reader` 加進某個角色，`DENY` 仍優先於 `GRANT`。`geo_reader` 不加入任何資料庫角色，也沒有 `IMPERSONATE` 權限，所以 `EXECUTE AS USER = 'dbo'` 會失敗。
 - M1 的 `spike_reader` 不動，`spike` 子命令照舊可重現 M1 數字。
@@ -239,7 +241,7 @@ DENY EXECUTE TO geo_reader;   -- 資料庫層級：dbo 結構描述的 DENY 管�
 
 ### 5.5 驗證（S3 的完成條件，`Database/ReadOnlyBoundaryTests`）
 
-1. **兩層獨立（B3）**：繞過驗證器，把 60 條攻擊逐條直接交給 `ReadOnlySqlExecutor` 執行，對照 `dbExpect`：`denied` 必須收到 `SqlException`。全部跑完後，比對執行前後的 6 張表內容雜湊（同 `seed` 的算法）與 `sys.objects` 物件清單，**必須完全相同**。
+1. **兩層獨立（B3）**：繞過驗證器，把 60 條攻擊逐條直接交給 `ReadOnlySqlExecutor` 執行，對照 `dbExpect`：`denied` 必須收到 `SqlException`（`BS04`、`DY06` 已改標 `read_only`，不在此列）。全部跑完後，比對執行前後的 6 張表內容雜湊（同 `seed` 的算法）與 `sys.objects` 物件清單，**必須完全相同**。
 2. **逾時（B4）**：`TimeoutSeconds = 1`，執行一個合法但很重的查詢（例如 `Customer` 三次 `CROSS JOIN` 後 `COUNT(*)`，約 10 億列），必須在約 1 秒後收到逾時。
 3. **列數上限（B4）**：`MaxRows = 10`，`SELECT * FROM dbo.Customer` 回傳 10 列且 `Truncated = true`。
 4. **正常查詢可用**：30 題標準 SQL 以 `geo_reader` 執行全部成功，結果與以 `Demo` 連線執行的相同。
