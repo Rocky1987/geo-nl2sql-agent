@@ -128,6 +128,8 @@ GRANT SELECT ON SCHEMA::dbo TO spike_reader;
 
 這不需要額外密碼。**限制必須明講**：生成的 SQL 若含 `REVERT` 可跳出限制，所以 spike 另做兩道便宜的前置檢查：只接受以 `SELECT` 或 `WITH` 開頭的單一批次、執行逾時 10 秒、結果列數上限 1,000。完整的 AST 白名單 + 獨立唯讀 login 屬 M2，**M1 的這套防護不得視為安全邊界**。
 
+**實作時的決定（S4）**：`EXECUTE AS ...; SQL; REVERT;` 放在同一批次執行時，若生成的 SQL 本身出錯，`REVERT` 不會執行到，身分會殘留在那條連線上；之後若連線被回收重用，下一次查詢可能仍是 spike_reader 身分，不易察覺。改成每題開一條不進連線池的連線（`Pooling=false`），先執行 `EXECUTE AS USER = 'spike_reader';` 再執行生成的 SQL，連線關閉即結束身分切換，不依賴 `REVERT` 一定會跑到。前置檢查也多加了關鍵字黑名單（`INSERT`、`UPDATE`、`DELETE`、`DROP`、`ALTER`、`CREATE`、`EXEC`、`REVERT`、`GRANT`、`INTO` 等），因為 T-SQL 不需要分號也能串接多個語句，只檢查開頭與分號擋不住（例如 `SELECT 1 REVERT DROP TABLE ...`）。這些仍然只是前置的便宜過濾，不是安全邊界。
+
 ---
 
 ## 4. S3：30 題標準集
@@ -211,7 +213,9 @@ GRANT SELECT ON SCHEMA::dbo TO spike_reader;
 
 ### 5.5 程式規模
 
-約 100 行：載入題目、迴圈、呼叫模型、抽出 SQL（正規表示式取 ```sql 區塊，抓不到則取第一個 `SELECT`／`WITH` 起始的文字）、`SqlCommand` 執行、比對、寫 JSON。不拆介面、不做 DI。若超過 150 行，先檢查是否過度設計（`CLAUDE.md` §2）。
+約 100 行：載入題目、迴圈、呼叫模型、抽出 SQL（正規表示式取 ```sql 區塊，抓不到則取第一個 `SELECT`／`WITH` 起始的文字）、`SqlCommand` 執行、比對、寫 JSON。不拆介面、不做 DI。若超過 300 行，先檢查是否過度設計（`CLAUDE.md` §2）。
+
+**實作時的決定（S4）**：原預估的 100 行偏樂觀，實際約 165 行（不含空行與純註解）。超出的部分對應到計畫本身的要求，不是額外功能：execution accuracy 比對與前置檢查（§5.3）份量本來就不小；plain／described 兩版 schema 文字由同一段邏輯從 `schema-description.md` 自動產生，以保證兩版除說明外文字完全相同（§6.1）；另加了 `--fake` 選項（不呼叫模型、直接用固定文字當回應）供本步驟驗收測試使用（§8 的「刻意餵一個含 `DROP` 的假回應」）。門檻因此由 150 行上調為 300 行。
 
 ---
 

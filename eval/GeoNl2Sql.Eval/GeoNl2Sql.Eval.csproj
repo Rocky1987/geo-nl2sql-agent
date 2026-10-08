@@ -25,6 +25,9 @@
     <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- seed 子命令在執行時讀取此檔，所以連結並複製到輸出目錄的 db/ 下 -->
     <None Include="..\..\db\01_schema.sql" Link="db\01_schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <!-- spike 子命令讀取的 schema 文字與題集 -->
+    <None Include="..\..\db\schema-description.md" Link="db\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Questions\questions.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

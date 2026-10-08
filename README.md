@@ -56,6 +56,18 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Anthropic claude-haiku-4-5   #
 dotnet run --project eval/GeoNl2Sql.Eval -- seed
 ```
 
+## 執行 M1 準確率量測（spike）
+
+丟棄式腳本，用途是量出 NL2SQL 準確率，不是正式功能（見 [docs/m1-implementation-plan.md](docs/m1-implementation-plan.md) §5）。需先 `seed` 建好資料庫。
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- spike                              # 本機模型、有欄位說明 schema、全部 30 題
+dotnet run --project eval/GeoNl2Sql.Eval -- spike plain --limit 5              # 無欄位說明 schema，只跑前 5 題
+dotnet run --project eval/GeoNl2Sql.Eval -- spike --provider Anthropic --model claude-haiku-4-5 --runs 3
+```
+
+結果寫到 `eval/GeoNl2Sql.Eval/Results/`（不進 git），每輪一份 JSON，含每題的生成 SQL、失敗類型與錯誤訊息。
+
 ## 授權
 
 MIT
@@ -119,6 +131,18 @@ Set `ConnectionStrings:Demo` first (the database name must be `GeoNl2SqlDemo`). 
 ```powershell
 dotnet run --project eval/GeoNl2Sql.Eval -- seed
 ```
+
+### Run the M1 accuracy spike
+
+A throwaway script whose only job is to measure NL2SQL accuracy, not a product feature (see [docs/m1-implementation-plan.md](docs/m1-implementation-plan.md) §5, written in Chinese). Run `seed` first.
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- spike                              # local model, schema with field descriptions, all 30 questions
+dotnet run --project eval/GeoNl2Sql.Eval -- spike plain --limit 5              # schema without field descriptions, first 5 questions only
+dotnet run --project eval/GeoNl2Sql.Eval -- spike --provider Anthropic --model claude-haiku-4-5 --runs 3
+```
+
+Results are written to `eval/GeoNl2Sql.Eval/Results/` (not committed), one JSON file per run, with each question's generated SQL, failure type and error message.
 
 ### License
 
