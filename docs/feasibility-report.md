@@ -245,6 +245,13 @@ M7 收尾：README、影片 (模組13)            ──► v1.0.0
 
 **M6｜容器化與 CI（約 3 人日）**
 - [ ] `docker compose up` 後 App + SQL Server 可用，並自動建庫與灌入合成資料
+- [ ] Compose 服務拆分：`sqlserver`（`MSSQL_PID=Express`、`ACCEPT_EULA=Y`、healthcheck）→ `seed`（一次性，等 sqlserver 健康後執行，完成即退出）→ `web`（`depends_on` seed 成功完成）。使用者指令是 `docker compose up`，不是 `docker run`
+- [ ] `.env.example`：列出 SA 密碼與 geo_reader 密碼欄位，使用者複製成 `.env` 填值；`.env` 不 commit。註解寫明 SA 密碼複雜度規則（至少 8 碼，含大小寫、數字、符號），不符時容器啟動失敗
+- [ ] 連線字串與金鑰走環境變數（`ConnectionStrings__Reader` 等；seed 已載入環境變數來源）。compose 一律提供 Reader，程式本身維持選填，本機 M1 路徑不受影響
+- [ ] seed 的管理連線（目前以 Windows 驗證連 master）改為可由環境變數覆蓋，容器內改用 SA 帳密；**先確認這點再寫 compose**
+- [ ] Ollama 做成 compose 的選用 profile，預設不啟動
+- [ ] README 快速開始：`cp .env.example .env` → 填密碼 → `docker compose up` → 開瀏覽器。註明 SQL Server Linux 映像只有 amd64，Apple Silicon 需 Rosetta 或模擬，速度較慢
+- [ ] 不需附資料檔：seed 以固定亂數於容器啟動時產生合成資料（內容雜湊可重現）
 - [ ] App 容器可連主機 Ollama；文件說明 GPU 直通的取捨
 - [ ] GitHub Actions：建置、單元測試、AST 驗證攻擊集、離線護欄測試全部通過；需要真實模型的評估不放在 CI
 
