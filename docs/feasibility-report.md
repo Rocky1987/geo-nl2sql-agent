@@ -76,7 +76,7 @@
 | 軌道 | 建議 | 理由與保留 |
 |---|---|---|
 | 雲端主軌 | 選一家的「最便宜且具 tool calling 的等級」 | Demo 與評估數據用；**設定每月預算上限**；費用以官方定價頁為準。單次完整評估估算：60 題 × 平均 2 次呼叫 × 約 4k 輸入 token ≈ 0.5M 輸入 token，重複 3 次約 1.5M，通常在數美元以內，開跑前請依定價頁自行換算 |
-| 本機副軌 | `qwen2.5-coder:3b`（約 1.9 GB，可完整放進 4 GB VRAM）為起點；`qwen2.5-coder:7b` 需部分卸載到 CPU，速度慢 | 這類小模型在 NL2SQL 的準確率與穩定的 tool calling 都**無法事先保證**（見 §6-1）；定位為「證明架構可切換 + 誠實呈現落差」，不是主要賣點 |
+| 本機副軌 | `qwen2.5:3b`（約 1.9 GB；coder 版 tool calling 失敗，見 §5 U2，可完整放進 4 GB VRAM）為起點；`qwen2.5-coder:7b` 需部分卸載到 CPU，速度慢 | 這類小模型在 NL2SQL 的準確率與穩定的 tool calling 都**無法事先保證**（見 §6-1）；定位為「證明架構可切換 + 誠實呈現落差」，不是主要賣點 |
 
 ---
 
@@ -204,11 +204,12 @@ M7 收尾：README、影片 (模組13)            ──► v1.0.0
 **M0 實測紀錄（2026-10-07）**
 - U1：`Microsoft.Agents.AI` 1.23.0 在 .NET 10 與 .NET 9 皆可還原並建置，測試通過。
 - U4：Anthropic SDK 12.53.0 提供 `AsIChatClient`，目前**僅確認可編譯**，尚未以真實 API key 呼叫；待設好 key 後補測。
-- U2（本機軌，未達標）：以 `qwen2.5-coder:3b` 執行 hello-agent，模型沒有產生結構化 tool call，而是把工具呼叫以純文字印出，工具未被執行。至今已觀察 3 次皆如此：
-  `{"name": "_Main_g_GetWeather_0_0", "arguments": {"city": {"city": "Taipei"}}}`
-  工具名稱是 C# 編譯器產生的區域函式名稱，引數也多包一層。結論：本機 3B 不適合走 tool calling，依 R3 採「純文字 SQL，由程式解析與驗證」的降級模式。正式的 20 次成功率尚未量測。
+- U2（本機軌）：`qwen2.5-coder:3b` 執行 hello-agent，模型沒有產生結構化 tool call，而是把工具呼叫以純文字印出（引數還多包一層，例如 `{"city": {"city": "Taipei"}}`），工具未被執行。分析與驗證：
+  - 工具名稱 `_Main_g_GetWeather_0_0` 是 C# 區域函式的編譯器改名，屬本專案程式問題；已改為 `AIFunctionFactory.Create(GetWeather, name: "GetWeather")`。修正後 `qwen2.5-coder:3b` 連跑 3 次仍輸出純文字（名稱正確、引數仍巢狀），故名稱不是主因。
+  - 換成非 coder 的 `qwen2.5:3b`（同為 1.9 GB 等級，同一份程式碼）：20 次中 20 次成功呼叫工具並回答，成功率 100%（以輸出含工具回傳值判定）。
+  - 結論：本機軌改用 `qwen2.5:3b` 即可走原生 tool calling；`qwen2.5-coder:3b` 留待 M1 與 NL2SQL 準確率一併比較。R3 的純文字 SQL 降級模式仍保留為備案。此測試僅有單一簡單工具，不代表多工具與複雜引數下同樣穩定。
 - 暫時性決定：因 Visual Studio 2022 17.14 無法載入 .NET 10 專案，目前專案暫降為 `net9.0`（`global.json` 鎖 9.0.306）；安裝 VS 2026 後再改回 `net10.0`。
-- 待辦：雲端軌 hello-agent 驗證（需使用者自行設定 user-secrets 金鑰）、20 次本機成功率、gitleaks 與 GitHub 推送。
+- 待辦：雲端軌 hello-agent 驗證（需使用者自行設定 user-secrets 金鑰）、gitleaks 與 GitHub 推送。
 
 **M1｜資料與準確率 spike（約 3–4 人日）★ 決定後續方向**
 - [ ] 合成資料可一鍵重建，筆數與 schema 固定（含 PII 欄位、空間欄位、幾個命名不佳的欄位）

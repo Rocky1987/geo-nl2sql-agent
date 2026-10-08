@@ -25,7 +25,7 @@ AIAgent agent = new ChatClientAgent(
     chatClient,
     instructions: "You are a helpful assistant. Use tools when they help.",
     name: "HelloAgent",
-    tools: [AIFunctionFactory.Create(GetWeather)]);
+    tools: [AIFunctionFactory.Create(GetWeather, name: "GetWeather")]);
 
 Console.WriteLine($"Provider={options.Provider} Model={options.ModelId}");
 var response = await agent.RunAsync("What is the weather in Taipei?");

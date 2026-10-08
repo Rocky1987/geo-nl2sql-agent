@@ -13,7 +13,7 @@ public sealed class ModelOptions
 
     public ModelProvider Provider { get; set; } = ModelProvider.Ollama;
 
-    public string ModelId { get; set; } = "qwen2.5-coder:3b";
+    public string ModelId { get; set; } = "qwen2.5:3b";
 
     public string OllamaEndpoint { get; set; } = "http://localhost:11434";
 

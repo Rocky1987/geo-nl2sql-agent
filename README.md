@@ -26,7 +26,7 @@
 ## 環境需求
 
 - .NET SDK 10（版本鎖定於 `global.json`）
-- 本機軌：Ollama 與 `qwen2.5-coder:3b`
+- 本機軌：Ollama 與 `qwen2.5:3b`
 - 雲端軌：Anthropic API key
 
 ## 設定與金鑰
@@ -78,7 +78,7 @@ This is a portfolio project: all data is synthetic, and no real customer or comp
 ### Requirements
 
 - .NET SDK 10 (pinned in `global.json`)
-- Local track: Ollama with `qwen2.5-coder:3b`
+- Local track: Ollama with `qwen2.5:3b`
 - Cloud track: an Anthropic API key
 
 ### Configuration and secrets
