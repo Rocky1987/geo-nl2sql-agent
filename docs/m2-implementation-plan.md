@@ -7,7 +7,7 @@
 | 里程碑定位 | 把 M1 的丟棄式 spike 換成正式的 Core 模組，並建立「AST 白名單 + 唯讀 login」兩層**互相獨立**的確定性防護（`feasibility-report.md` §5） |
 | 預估工時 | 約 9 人日（模組 3、4、5：4 + 3 + 2） |
 | 完成後 | 打 `v0.1.0`（MVP 可公開） |
-| 狀態 | **進行中**：S1 完成（待作者檢視後 commit）。S3 開始前需要作者先決定 §10 的 Q1 |
+| 狀態 | **進行中（2026-10-08）**：S1、S2 完成（已 commit）；S3 完成一半（Q1 已落實：混合驗證已開、`geo_reader` login 與 `db/02_reader.sql` 已驗證、seed 可重建），`ReadOnlySqlExecutor` 與 `ReadOnlyBoundaryTests` 尚未寫；S4–S7 未開始 |
 
 ---
 
