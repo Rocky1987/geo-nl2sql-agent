@@ -1,0 +1,212 @@
+[
+  {
+    "id": "S01",
+    "category": "single",
+    "question": "列出所有維護中的基地台名稱。",
+    "goldSql": "SELECT StationName FROM dbo.BaseStation WHERE Status = N'Maintenance'",
+    "ordered": false
+  },
+  {
+    "id": "S02",
+    "category": "single",
+    "question": "月租費低於 500 元的資費方案有哪些？列出方案名稱與月租費。",
+    "goldSql": "SELECT PlanName, MonthlyFee FROM dbo.ServicePlan WHERE MonthlyFee < 500",
+    "ordered": false
+  },
+  {
+    "id": "S03",
+    "category": "single",
+    "question": "How many base stations use the 3500MHz band?",
+    "goldSql": "SELECT COUNT(*) FROM dbo.BaseStation WHERE Band = N'3500MHz'",
+    "ordered": false
+  },
+  {
+    "id": "S04",
+    "category": "single",
+    "question": "政府機關客戶共有幾位？",
+    "goldSql": "SELECT COUNT(*) FROM dbo.Customer WHERE flg1 = 2",
+    "ordered": false
+  },
+  {
+    "id": "S05",
+    "category": "single",
+    "question": "合約到期日落在 2026 年第一季（1 月 1 日至 3 月 31 日）的訂閱共有幾筆？",
+    "goldSql": "SELECT COUNT(*) FROM dbo.Subscription WHERE dt2 >= '2026-01-01' AND dt2 < '2026-04-01'",
+    "ordered": false
+  },
+  {
+    "id": "S06",
+    "category": "single",
+    "question": "啟用日期最早的 5 座基地台，依啟用日期由早到晚列出基地台名稱與啟用日期。",
+    "goldSql": "SELECT TOP 5 StationName, InstalledDate FROM dbo.BaseStation ORDER BY InstalledDate",
+    "ordered": true
+  },
+  {
+    "id": "S07",
+    "category": "single",
+    "question": "曾經發生過中斷事件的基地台共有幾座？",
+    "goldSql": "SELECT COUNT(DISTINCT StationId) FROM dbo.OutageEvent",
+    "ordered": false
+  },
+  {
+    "id": "S08",
+    "category": "single",
+    "question": "2026 年 3 月開始、持續超過 8 小時的中斷事件有幾筆？",
+    "goldSql": "SELECT COUNT(*) FROM dbo.OutageEvent WHERE StartedAt >= '2026-03-01' AND StartedAt < '2026-04-01' AND DurationMinutes > 480",
+    "ordered": false
+  },
+  {
+    "id": "J01",
+    "category": "join",
+    "question": "列出中央區所有基地台的名稱。",
+    "goldSql": "SELECT b.StationName FROM dbo.BaseStation b JOIN dbo.District d ON d.DistrictId = b.DistrictId WHERE d.DistrictName = N'中央區'",
+    "ordered": false
+  },
+  {
+    "id": "J02",
+    "category": "join",
+    "question": "有多少位客戶訂閱了無限方案？同一位客戶只算一次。",
+    "goldSql": "SELECT COUNT(DISTINCT s.CustomerId) FROM dbo.Subscription s JOIN dbo.ServicePlan p ON p.PlanId = s.PlanId WHERE p.PlanName = N'無限方案'",
+    "ordered": false
+  },
+  {
+    "id": "J03",
+    "category": "join",
+    "question": "列出從未發生過任何中斷事件的基地台名稱。",
+    "goldSql": "SELECT b.StationName FROM dbo.BaseStation b WHERE NOT EXISTS (SELECT 1 FROM dbo.OutageEvent o WHERE o.StationId = b.StationId)",
+    "ordered": false
+  },
+  {
+    "id": "J04",
+    "category": "join",
+    "question": "住在南湖區、且訂閱過企業方案的企業客戶有哪些？列出客戶編號與姓名，每位客戶只列一次。",
+    "goldSql": "SELECT DISTINCT c.CustomerId, c.FullName FROM dbo.Customer c JOIN dbo.District d ON d.DistrictId = c.DistrictId JOIN dbo.Subscription s ON s.CustomerId = c.CustomerId JOIN dbo.ServicePlan p ON p.PlanId = s.PlanId WHERE d.DistrictName = N'南湖區' AND c.flg1 = 1 AND p.PlanName = N'企業方案'",
+    "ordered": false
+  },
+  {
+    "id": "J05",
+    "category": "join",
+    "question": "合約到期日在 2025 年、且方案月租費在 999 元以上的訂閱有哪些？列出訂閱編號、方案名稱與合約到期日。",
+    "goldSql": "SELECT s.SubscriptionId, p.PlanName, s.dt2 FROM dbo.Subscription s JOIN dbo.ServicePlan p ON p.PlanId = s.PlanId WHERE s.dt2 >= '2025-01-01' AND s.dt2 < '2026-01-01' AND p.MonthlyFee >= 999",
+    "ordered": false
+  },
+  {
+    "id": "J06",
+    "category": "join",
+    "question": "白石區的基地台總共中斷了多少分鐘？",
+    "goldSql": "SELECT SUM(o.DurationMinutes) FROM dbo.OutageEvent o JOIN dbo.BaseStation b ON b.StationId = o.StationId JOIN dbo.District d ON d.DistrictId = b.DistrictId WHERE d.DistrictName = N'白石區'",
+    "ordered": false
+  },
+  {
+    "id": "J07",
+    "category": "join",
+    "question": "沒有訂閱過學生方案的政府機關客戶有幾位？",
+    "goldSql": "SELECT COUNT(*) FROM dbo.Customer c WHERE c.flg1 = 2 AND NOT EXISTS (SELECT 1 FROM dbo.Subscription s JOIN dbo.ServicePlan p ON p.PlanId = s.PlanId WHERE s.CustomerId = c.CustomerId AND p.PlanName = N'學生方案')",
+    "ordered": false
+  },
+  {
+    "id": "J08",
+    "category": "join",
+    "question": "List the names of active base stations that had a Hardware outage lasting more than 300 minutes. List each station only once.",
+    "goldSql": "SELECT DISTINCT b.StationName FROM dbo.BaseStation b JOIN dbo.OutageEvent o ON o.StationId = b.StationId WHERE b.Status = N'Active' AND o.Cause = N'Hardware' AND o.DurationMinutes > 300",
+    "ordered": false
+  },
+  {
+    "id": "A01",
+    "category": "aggregate",
+    "question": "各行政區各有幾座基地台？列出行政區名稱與基地台數。",
+    "goldSql": "SELECT d.DistrictName, COUNT(*) FROM dbo.District d JOIN dbo.BaseStation b ON b.DistrictId = d.DistrictId GROUP BY d.DistrictName",
+    "ordered": false
+  },
+  {
+    "id": "A02",
+    "category": "aggregate",
+    "question": "每種中斷原因的平均持續分鐘數是多少？列出原因與平均分鐘數（四捨五入到小數第 2 位）。",
+    "goldSql": "SELECT Cause, ROUND(AVG(DurationMinutes * 1.0), 2) FROM dbo.OutageEvent GROUP BY Cause",
+    "ordered": false
+  },
+  {
+    "id": "A03",
+    "category": "aggregate",
+    "question": "中斷次數達 4 次以上的基地台有哪些？列出基地台名稱與中斷次數。",
+    "goldSql": "SELECT b.StationName, COUNT(*) FROM dbo.BaseStation b JOIN dbo.OutageEvent o ON o.StationId = b.StationId GROUP BY b.StationName HAVING COUNT(*) >= 4",
+    "ordered": false
+  },
+  {
+    "id": "A04",
+    "category": "aggregate",
+    "question": "企業客戶最多的 3 個行政區是哪些？列出行政區名稱與企業客戶數。",
+    "goldSql": "SELECT TOP 3 d.DistrictName, COUNT(*) AS EnterpriseCount FROM dbo.Customer c JOIN dbo.District d ON d.DistrictId = c.DistrictId WHERE c.flg1 = 1 GROUP BY d.DistrictName ORDER BY EnterpriseCount DESC",
+    "ordered": false
+  },
+  {
+    "id": "A05",
+    "category": "aggregate",
+    "question": "依合約到期年份統計訂閱筆數，列出年份與筆數，依年份由小到大排序。",
+    "goldSql": "SELECT YEAR(dt2) AS ExpiryYear, COUNT(*) FROM dbo.Subscription GROUP BY YEAR(dt2) ORDER BY ExpiryYear",
+    "ordered": true
+  },
+  {
+    "id": "A06",
+    "category": "aggregate",
+    "question": "以 2026 年 6 月 30 日當天仍有效的訂閱（起始日不晚於該日、合約到期日不早於該日）計算，各方案的月租收入合計是多少？列出方案名稱與金額。",
+    "goldSql": "SELECT p.PlanName, SUM(p.MonthlyFee) FROM dbo.Subscription s JOIN dbo.ServicePlan p ON p.PlanId = s.PlanId WHERE s.StartDate <= '2026-06-30' AND s.dt2 >= '2026-06-30' GROUP BY p.PlanName",
+    "ordered": false
+  },
+  {
+    "id": "A07",
+    "category": "aggregate",
+    "question": "哪些行政區的運轉中基地台占該區基地台總數的比例低於 82%？列出行政區名稱與比例（百分比，四捨五入到整數）。",
+    "goldSql": "SELECT d.DistrictName, ROUND(100.0 * SUM(CASE WHEN b.Status = N'Active' THEN 1 ELSE 0 END) / COUNT(*), 0) FROM dbo.District d JOIN dbo.BaseStation b ON b.DistrictId = d.DistrictId GROUP BY d.DistrictName HAVING 100.0 * SUM(CASE WHEN b.Status = N'Active' THEN 1 ELSE 0 END) / COUNT(*) < 82",
+    "ordered": false
+  },
+  {
+    "id": "G01",
+    "category": "spatial",
+    "question": "How many base stations are within 3 km of the point at latitude 25.05, longitude 121.55?",
+    "goldSql": "SELECT COUNT(*) FROM dbo.BaseStation WHERE Location.STDistance(geography::Point(25.05, 121.55, 4326)) <= 3000",
+    "ordered": false
+  },
+  {
+    "id": "G02",
+    "category": "spatial",
+    "question": "距離座標（緯度 25.12、經度 121.43）最近的 5 座基地台，依距離由近到遠列出基地台名稱與距離（公尺，四捨五入到整數）。",
+    "goldSql": "SELECT TOP 5 StationName, ROUND(Location.STDistance(geography::Point(25.12, 121.43, 4326)), 0) AS DistanceM FROM dbo.BaseStation ORDER BY Location.STDistance(geography::Point(25.12, 121.43, 4326))",
+    "ordered": true
+  },
+  {
+    "id": "G03",
+    "category": "spatial",
+    "question": "座標（緯度 24.93、經度 121.68）位於哪一個行政區？列出行政區名稱。",
+    "goldSql": "SELECT DistrictName FROM dbo.District WHERE Boundary.STIntersects(geography::Point(24.93, 121.68, 4326)) = 1",
+    "ordered": false
+  },
+  {
+    "id": "G04",
+    "category": "spatial",
+    "question": "列出各行政區的名稱與面積（平方公里，四捨五入到小數第 2 位）。",
+    "goldSql": "SELECT DistrictName, ROUND(Boundary.STArea() / 1000000.0, 2) FROM dbo.District",
+    "ordered": false
+  },
+  {
+    "id": "G05",
+    "category": "spatial",
+    "question": "人口密度（人／平方公里）最高的 3 個行政區是哪些？列出行政區名稱。",
+    "goldSql": "SELECT TOP 3 DistrictName FROM dbo.District ORDER BY Population / (Boundary.STArea() / 1000000.0) DESC",
+    "ordered": false
+  },
+  {
+    "id": "G06",
+    "category": "spatial",
+    "question": "與基地台 BS-0005 距離 2 公里內的其他基地台有哪些？列出基地台名稱。",
+    "goldSql": "SELECT b.StationName FROM dbo.BaseStation a JOIN dbo.BaseStation b ON b.StationId <> a.StationId AND b.Location.STDistance(a.Location) <= 2000 WHERE a.StationName = N'BS-0005'",
+    "ordered": false
+  },
+  {
+    "id": "G07",
+    "category": "spatial",
+    "question": "座標（緯度 25.15、經度 121.45）所在的行政區內有幾位政府機關客戶？",
+    "goldSql": "SELECT COUNT(*) FROM dbo.Customer c JOIN dbo.District d ON d.DistrictId = c.DistrictId WHERE d.Boundary.STIntersects(geography::Point(25.15, 121.45, 4326)) = 1 AND c.flg1 = 2",
+    "ordered": false
+  }
+]
