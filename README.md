@@ -5,8 +5,6 @@
 以 .NET 10 與 Microsoft Agent Framework 打造的「自然語言轉 SQL」空間資料代理，後端為 SQL Server，Web 層採用 ASP.NET Core MVC。
 這是個人作品集專案：所有資料皆為合成資料，不涉及任何真實客戶或公司。
 
-> **目前狀態：M0（環境與 hello-agent）**，開發中。計畫與里程碑請見 [docs/feasibility-report.md](docs/feasibility-report.md)。
-
 ## 目標
 
 - NL2SQL，並以確定性的安全邊界把關（SQL AST 白名單 + 唯讀資料庫登入）。
@@ -80,8 +78,6 @@ MIT
 
 A natural-language-to-SQL agent for spatial data on SQL Server, built with .NET 10 and Microsoft Agent Framework. The web layer is ASP.NET Core MVC.
 This is a portfolio project: all data is synthetic, and no real customer or company is involved.
-
-> **Status: M0 (environment and hello-agent)**, work in progress. See [docs/feasibility-report.md](docs/feasibility-report.md) for the plan and milestones (written in Chinese).
 
 ### Goals
 

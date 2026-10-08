@@ -162,9 +162,18 @@ public static class SpikeCommand
         string demo, List<object?[]> gold, bool ordered)
     {
         var sw = Stopwatch.StartNew();
-        var response = fakeResponse is null
-            ? await client!.GetResponseAsync(messages, new ChatOptions { Temperature = 0, MaxOutputTokens = 1024 })
-            : new ChatResponse(new ChatMessage(ChatRole.Assistant, fakeResponse));
+        ChatResponse response;
+        try
+        {
+            response = fakeResponse is null
+                ? await client!.GetResponseAsync(messages, new ChatOptions { Temperature = 0, MaxOutputTokens = 1024 })
+                : new ChatResponse(new ChatMessage(ChatRole.Assistant, fakeResponse));
+        }
+        catch (HttpRequestException ex)
+        {
+            // 本機 Ollama 偶爾對特定請求回 500（非我方程式邏輯問題），記為失敗並讓其餘題目繼續跑，而不是整個輪次中斷。
+            return new Attempt("", null, "model_error", ex.Message, sw.ElapsedMilliseconds, null, null);
+        }
         var ms = sw.ElapsedMilliseconds;
         Attempt Result(string? sql, string? failure, string? error) =>
             new(response.Text, sql, failure, error, ms, response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount);
