@@ -2,8 +2,17 @@
 
 **中文** | [English](#english)
 
-以 .NET 10 與 Microsoft Agent Framework 打造的「自然語言轉 SQL」空間資料代理，後端為 SQL Server，Web 層採用 ASP.NET Core MVC。
+以 .NET 與 Microsoft Agent Framework 打造的「自然語言轉 SQL」空間資料代理，後端為 SQL Server，Web 層採用 ASP.NET Core MVC。
 這是個人作品集專案：所有資料皆為合成資料，不涉及任何真實客戶或公司。
+
+## 技術亮點
+
+模型產生的 SQL 不被信任，由兩道彼此獨立的防線把關：
+
+1. **SQL AST 白名單**：以 ScriptDom 解析，只放行單一 `SELECT`，資料表與函式都限白名單；任何解析錯誤、多語句、`SELECT INTO`、動態 SQL、外部資料來源都拒絕。
+2. **唯讀資料庫登入**：生成的 SQL 只用 `geo_reader` 執行，資料庫層只授予 `SELECT`，即使第一層被繞過也無法寫入或改結構。
+
+另有逾時與列數上限、有界的自我修正（最多 2 次），以及只回饋固定訊息、不把資料庫原文交給模型的錯誤消毒。60 條攻擊語料庫的結果與兩層的分工見 [docs/feasibility-report.md](docs/feasibility-report.md) §8。
 
 ## 目標
 
@@ -23,7 +32,7 @@
 
 ## 環境需求
 
-- .NET SDK 10（版本鎖定於 `global.json`）
+- .NET SDK 9（版本鎖定於 `global.json`）
 - 本機軌：Ollama 與 `qwen2.5:3b`
 - 雲端軌：Anthropic API key
 
@@ -66,6 +75,39 @@ dotnet run --project eval/GeoNl2Sql.Eval -- spike --provider Anthropic --model c
 
 結果寫到 `eval/GeoNl2Sql.Eval/Results/`（不進 git），每輪一份 JSON，含每題的生成 SQL、失敗類型與錯誤訊息。
 
+## 設定唯讀登入並執行 NL2SQL 管線
+
+管線用唯讀登入 `geo_reader` 執行模型產生的 SQL。前提：
+
+- SQL Server 需啟用**混合驗證**（SQL 驗證與 Windows 驗證並存），`geo_reader` 才能以密碼登入。
+- 設定 `ConnectionStrings:Reader`，User ID 必須是 `geo_reader`；`seed` 會依這個連線字串建立（或更新密碼）該 login 並套用 [db/02_reader.sql](db/02_reader.sql) 的權限，所以請在 `seed` **之前**設定。
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:Reader" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_reader;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
+dotnet run --project eval/GeoNl2Sql.Eval -- seed
+```
+
+手動問一個問題（會印出每次嘗試的 SQL、失敗原因與前 20 列結果）：
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？"
+dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？" --provider Anthropic --model claude-haiku-4-5
+```
+
+30 題端到端量測（生成的 SQL 只走 `geo_reader`，與標準答案比對執行結果，並統計驗證器誤擋）。雲端模型會依題數計費，可先用 `--limit` 少量試跑，或用 `--fake` 不呼叫模型驗證流程：
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --provider Anthropic --model claude-haiku-4-5 --limit 3
+dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --fake "{gold}"        # 把標準 SQL 當作模型回應，不花費用
+```
+
+## 執行測試
+
+```powershell
+dotnet test --filter "Category!=Database"   # 離線測試，不需資料庫與模型
+dotnet test                                  # 全部；需有種子資料庫與 geo_reader
+```
+
 ## 授權
 
 MIT
@@ -76,8 +118,17 @@ MIT
 
 [中文](#geo-nl2sql-agent)
 
-A natural-language-to-SQL agent for spatial data on SQL Server, built with .NET 10 and Microsoft Agent Framework. The web layer is ASP.NET Core MVC.
+A natural-language-to-SQL agent for spatial data on SQL Server, built with .NET and Microsoft Agent Framework. The web layer is ASP.NET Core MVC.
 This is a portfolio project: all data is synthetic, and no real customer or company is involved.
+
+### Highlights
+
+Model-generated SQL is never trusted. Two independent defenses guard it:
+
+1. **SQL AST allow-list**: parsed with ScriptDom; only a single `SELECT` passes, with tables and functions restricted to allow-lists. Parse errors, multiple statements, `SELECT INTO`, dynamic SQL and external data sources are all rejected.
+2. **Read-only database login**: generated SQL runs only as `geo_reader`, which holds `SELECT` and nothing else, so even if the first layer is bypassed nothing can be written or altered.
+
+Also: query timeout and row cap, bounded self-correction (at most 2 retries), and error sanitizing that feeds the model fixed messages instead of database text. Results of the 60-attack corpus and how the two layers divide the work are in [docs/feasibility-report.md](docs/feasibility-report.md) §8 (written in Chinese).
 
 ### Goals
 
@@ -97,7 +148,7 @@ This is a portfolio project: all data is synthetic, and no real customer or comp
 
 ### Requirements
 
-- .NET SDK 10 (pinned in `global.json`)
+- .NET SDK 9 (pinned in `global.json`)
 - Local track: Ollama with `qwen2.5:3b`
 - Cloud track: an Anthropic API key
 
@@ -139,6 +190,39 @@ dotnet run --project eval/GeoNl2Sql.Eval -- spike --provider Anthropic --model c
 ```
 
 Results are written to `eval/GeoNl2Sql.Eval/Results/` (not committed), one JSON file per run, with each question's generated SQL, failure type and error message.
+
+### Read-only login and the NL2SQL pipeline
+
+The pipeline runs model-generated SQL as the read-only login `geo_reader`. Prerequisites:
+
+- SQL Server must allow **mixed-mode authentication** (SQL and Windows) so `geo_reader` can sign in with a password.
+- Set `ConnectionStrings:Reader` with User ID `geo_reader`. `seed` creates (or updates the password of) that login from this connection string and applies the permissions in [db/02_reader.sql](db/02_reader.sql), so set it **before** running `seed`.
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:Reader" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_reader;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
+dotnet run --project eval/GeoNl2Sql.Eval -- seed
+```
+
+Ask one question (prints each attempt's SQL, failure reason and the first 20 rows):
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？"
+dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？" --provider Anthropic --model claude-haiku-4-5
+```
+
+The 30-question end-to-end run (generated SQL goes through `geo_reader` only; results are compared with the gold answers and validator false rejects are counted). Cloud models are billed per call, so try `--limit` first, or `--fake` to exercise the flow without calling a model:
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --provider Anthropic --model claude-haiku-4-5 --limit 3
+dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --fake "{gold}"        # use the gold SQL as the model reply, no cost
+```
+
+### Running the tests
+
+```powershell
+dotnet test --filter "Category!=Database"   # offline tests, no database or model needed
+dotnet test                                  # everything; needs the seeded database and geo_reader
+```
 
 ### License
 

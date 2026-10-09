@@ -3,7 +3,7 @@
 | 項目 | 內容 |
 |---|---|
 | 讀者 | 想深入了解本方案技術內容的開發者 |
-| 文件日期 | 2026-10-08（對應 commit `b7296be`，里程碑 M0） |
+| 文件日期 | 2026-10-09（涵蓋已完成的模型工廠、護欄與 NL2SQL 管線；Web、GIS、PII、稽核尚未實作） |
 | 範圍 | 方案內四個專案：`GeoNl2Sql.Core`、`GeoNl2Sql.Web`、`GeoNl2Sql.Tests`、`GeoNl2Sql.Eval` |
 | 閱讀提醒 | 每個專案都分成「**現況**（已存在於程式碼）」與「**規劃**（尚未實作，來自 `feasibility-report.md`）」。尚未實作的部分不當成既成事實描述。 |
 
@@ -14,7 +14,7 @@
 ```
 GeoNl2Sql.slnx
 ├── src/
-│   ├── GeoNl2Sql.Core/      類別庫：模型工廠、（規劃）Agent、護欄、資料存取、空間查詢
+│   ├── GeoNl2Sql.Core/      類別庫：模型工廠、護欄、唯讀執行、NL2SQL 管線；（規劃）Agent 工具迴圈、空間查詢
 │   └── GeoNl2Sql.Web/       ASP.NET Core MVC：Controller + Razor View + Leaflet
 ├── tests/
 │   └── GeoNl2Sql.Tests/     xUnit 單元測試（離線可跑）
@@ -37,11 +37,11 @@ Web  ──▶ Core ◀── Tests
 
 | 項目 | 目前值 | 說明 |
 |---|---|---|
-| 目標框架 | `net9.0`（四個專案一致） | **暫時性降級**：Visual Studio 2022 17.14 無法載入 .NET 10 SDK 專案。安裝 VS 2026 後改回 `net10.0` |
-| SDK 鎖定 | [global.json](../global.json)：`9.0.306`，`rollForward: latestFeature` | 同上，改回時一併改 `10.0.401` |
+| 目標框架 | `net9.0`（四個專案一致） | 目前以 .NET 9 為基準；升級到 .NET 10 列在 §7 |
+| SDK 鎖定 | [global.json](../global.json)：`9.0.306`，`rollForward: latestFeature` | 升級框架時一併調整 |
 | 語言設定 | `Nullable` 與 `ImplicitUsings` 皆啟用 | |
-| 建置指令 | `dotnet build GeoNl2Sql.slnx`、`dotnet test` | 現況：0 警告 0 錯誤，測試 1/1 通過（為空測試） |
-| 版本管理 | 預設分支 `main`；commit 前由本機 pre-commit hook 執行 gitleaks | hook 在 `.git/hooks`，不隨儲存庫散佈，clone 後需自行重設 |
+| 建置與測試 | `dotnet build GeoNl2Sql.slnx`、`dotnet test` | 0 警告 0 錯誤；全部 185 項測試通過，其中 34 項需要資料庫（標記 `Database`），其餘 151 項離線即可跑：`dotnet test --filter "Category!=Database"` |
+| 版本管理 | 預設分支 `main`；commit 前可由本機 pre-commit hook 執行 gitleaks | hook 在 `.git/hooks`，不隨儲存庫散佈，clone 後需自行設定 |
 
 ---
 
@@ -61,8 +61,10 @@ Web  ──▶ Core ◀── Tests
 | `Microsoft.Extensions.AI` | 10.10.0 | 模型抽象 `IChatClient`、工具抽象 `AIFunction`／`AIFunctionFactory` |
 | `OllamaSharp` | 5.5.0 | 本機軌：`OllamaApiClient` 直接實作 `IChatClient` |
 | `Anthropic` | 12.53.0 | 雲端軌：官方 SDK，經擴充方法 `AsIChatClient` 轉成 `IChatClient` |
+| `Microsoft.SqlServer.TransactSql.ScriptDom` | 180.117.0 | T-SQL 解析成 AST，供 `SqlValidator` 做白名單驗證 |
+| `Microsoft.Data.SqlClient` | 7.1.1 | 唯讀執行器的資料庫存取 |
 
-### 2.3 現況：兩個檔案
+### 2.3 現況：模型工廠（根目錄兩個檔案）
 
 **[ModelOptions.cs](../src/GeoNl2Sql.Core/ModelOptions.cs)**：綁定設定檔 `Model` 區段的選項類別。
 
@@ -79,17 +81,36 @@ Web  ──▶ Core ◀── Tests
 - `Anthropic` → `new AnthropicClient { ApiKey = ... }.AsIChatClient(modelId)`；`ApiKey` 為空時丟出 `InvalidOperationException` 並提示設定方式。
 - 呼叫端只看得到 `IChatClient`，看不到供應商。這是「同一份程式碼僅改設定即可切換雲端／本機」（驗收 U2）的實作基礎。
 
-### 2.4 規劃：資料夾分工（尚未建立）
+### 2.4 現況：資料夾分工
 
-| 資料夾 | 內容 | 對應里程碑 |
+**`Guardrails/`：兩層防線與錯誤消毒**
+
+| 檔案 | 內容 |
+|---|---|
+| [SqlValidator.cs](../src/GeoNl2Sql.Core/Guardrails/SqlValidator.cs) | 第一層。以 `TSql160Parser` 解析，任何解析錯誤即拒絕；只接受單一批次、單一 `SELECT`；不得 `SELECT INTO`；資料表限白名單（或本陳述式內定義的 CTE）；不得使用 `OPENROWSET` 等外部來源；函式必須在白名單內。回傳是否通過與固定的拒絕原因 |
+| [ReadOnlySqlExecutor.cs](../src/GeoNl2Sql.Core/Guardrails/ReadOnlySqlExecutor.cs) | 第二層的執行端。以唯讀登入 `geo_reader` 的連線執行；`QueryLimits` 預設逾時 10 秒、最多 1000 列（多讀 1 列以判斷是否截斷）；`geography`／`geometry` 欄位以位元組讀出 |
+| [SqlErrorSanitizer.cs](../src/GeoNl2Sql.Core/Guardrails/SqlErrorSanitizer.cs) | 依資料庫錯誤號碼回固定訊息，回饋給模型的內容因此不含表名、欄位名或資料庫原文 |
+
+兩層彼此獨立：關掉驗證器，`geo_reader` 仍無法寫入、無法 DDL、無法執行本資料庫的預存程序；權限定義在 [db/02_reader.sql](../db/02_reader.sql)。實測見 `feasibility-report.md` §8。
+
+**`Nl2Sql/`：自然語言到結果的管線**
+
+| 檔案 | 內容 |
+|---|---|
+| [PromptBuilder.cs](../src/GeoNl2Sql.Core/Nl2Sql/PromptBuilder.cs) | 由 `db/schema-description.md` 組出 system prompt，有 `described`（含欄位說明）與 `plain` 兩種；輸出與 M1 實驗用的提示詞逐字相同，以快照測試鎖定，因此準確率可與 M1 比較 |
+| [SqlExtractor.cs](../src/GeoNl2Sql.Core/Nl2Sql/SqlExtractor.cs) | 從模型回應取出 SQL：優先取 ```sql 區塊，否則用後備規則；抽不到回傳 null |
+| [Nl2SqlPipeline.cs](../src/GeoNl2Sql.Core/Nl2Sql/Nl2SqlPipeline.cs) | 生成 → 抽取 → 驗證 → 執行；任一步失敗就把上次回應與消毒後的原因附加到對話再生成，**修正上限 2 次（最多生成 3 次）**；被驗證器拒絕的 SQL 絕不送到執行器；SQL 層面的失敗不丟例外而以結果回報，模型呼叫本身的例外往外傳。回答就是查詢結果本身，不另請模型摘要 |
+| [DemoSchema.cs](../src/GeoNl2Sql.Core/Nl2Sql/DemoSchema.cs) | 示範資料庫允許查詢的 6 張表，提供給 `SqlValidator` |
+
+組裝方式：`new Nl2SqlPipeline(client, new SqlValidator(DemoSchema.Tables), executor.ExecuteAsync, schemaMarkdown).AskAsync("問題")`。
+
+**規劃（尚未建立）**
+
+| 項目 | 內容 | 對應里程碑 |
 |---|---|---|
-| `Agent/` | `ChatClientAgent` 組裝、工具定義、AF 三層中介層（ChatClient／Agent Run／Function Invocation）掛載護欄與稽核 | M2、M4 |
-| `Data/` | SQL Server 存取、`Microsoft.Data.SqlClient`、唯讀連線、schema 提供者 | M2 |
-| `Guardrails/` | `Microsoft.SqlServer.TransactSql.ScriptDom` 的 AST 白名單驗證、有界重試（上限 2 次）、錯誤訊息消毒 | M2 |
+| `Agent/` | `ChatClientAgent` 組裝、工具定義、AF 三層中介層（ChatClient／Agent Run／Function Invocation）掛載護欄與稽核；M2 的管線是程式控制的流程，Agent Framework 的工具迴圈延到這裡 | M3、M4 |
 | `Spatial/` | `geography` 查詢、`NetTopologySuite` 組 GeoJSON、質心與緩衝區 | M3 |
 | 稽核與 PII | 遮蔽視圖、稽核表（可選 `LEDGER = ON`） | M4 |
-
-這些套件尚未加入 csproj；實際加入時以各里程碑為準。
 
 ### 2.5 技術特點
 
@@ -146,7 +167,7 @@ dotnet run --project src/GeoNl2Sql.Web --launch-profile http
 
 ### 4.1 角色
 
-可離線執行的單元測試：不連 SQL Server、不呼叫任何模型 API，讓 CI 與貢獻者隨時可跑。
+單元測試分兩類：離線測試不連 SQL Server、不呼叫任何模型 API，讓 CI 與貢獻者隨時可跑；少數邊界測試標記 `[Trait("Category", "Database")]`，需要本機有種子資料庫與 `geo_reader`（見 README），以 `--filter "Category!=Database"` 排除。
 
 ### 4.2 使用套件
 
@@ -161,8 +182,19 @@ dotnet run --project src/GeoNl2Sql.Web --launch-profile http
 
 ### 4.3 現況與規劃
 
-- 現況：只有範本留下的空測試 `UnitTest1.Test1`，用來確認建置與測試管線可通。
-- 規劃：M2 起放入 AST 白名單的案例表（含註解插入、`CHAR()` 拼接、批次分隔等繞過手法）、`ChatClientFactory` 設定驗證、PII 遮蔽規則。需連資料庫或模型的驗證歸 Eval，不放這裡。
+現況（共 185 項；離線 151 項、`Database` 34 項）：
+
+| 位置 | 內容 |
+|---|---|
+| `Guardrails/attack-sql.json`、`benign-sql.json` | 60 條攻擊 SQL（含註解插入、大小寫變形、`CHAR()` 拼接、批次分隔、巢狀 CTE、`EXEC`、多語句）與 13 條「看似可疑但無害」的查詢；每條攻擊標有 `dbExpect`（資料庫層的預期結果） |
+| `CorpusIntegrityTests` | 鎖住語料庫的筆數與各類別數，避免「阻擋率 100%」的分母悄悄縮水 |
+| `SqlValidatorTests` | 60 條攻擊必須全部拒絕且附原因；正常查詢與 30 題標準 SQL 必須放行；另有只違反單一規則的合法語法案例 |
+| `SqlErrorSanitizerTests` | 回饋訊息只依錯誤號碼，不含資料庫原文 |
+| `Prompting/` | `PromptBuilder` 的輸出與已記錄的提示詞快照逐字相同；`SqlExtractor` 的抽取規則 |
+| `Nl2Sql/Nl2SqlPipelineTests` | 以腳本化的假 `IChatClient` 與假執行器驗證有界重試：永遠失敗時恰好生成 3 次、被拒絕的 SQL 不送執行器、回饋不含資料庫原文、逾時與截斷的處理 |
+| `Database/ReadOnlyBoundaryTests`（`Database`） | 60 條攻擊繞過驗證器直送唯讀執行器，前後比對 6 張表、`sys.objects` 與 `geo_reader` 權限的雜湊；逾時、列數上限；30 題標準 SQL 以 `geo_reader` 執行結果與管理身分相同 |
+
+需連模型的驗證歸 Eval，不放這裡。尚待補的測試：PII 遮蔽規則（M4）。`UnitTest1` 是範本留下的空測試。
 
 ---
 
@@ -172,7 +204,7 @@ dotnet run --project src/GeoNl2Sql.Web --launch-profile http
 
 ### 5.1 角色
 
-可執行的主控台專案（`OutputType=Exe`），放 hello-agent，以及後續的評估、消融實驗與攻擊語料庫執行器。它是目前唯一真正「動起來」的專案。
+可執行的主控台專案（`OutputType=Exe`），以子命令分派：`hello`（hello-agent）、`seed`（建示範資料庫）、`spike`（M1 準確率量測）、`pipeline`（M2 端到端量測）、`ask`（手動問一題）。它是目前唯一真正「動起來」的專案；後續的消融實驗與攻擊語料庫執行器也放這裡。
 
 ### 5.2 使用套件
 
@@ -185,7 +217,7 @@ dotnet run --project src/GeoNl2Sql.Web --launch-profile http
 
 AF、`Microsoft.Extensions.AI`、`OllamaSharp`、`Anthropic` 經專案引用由 `Core` 傳遞進來，Eval 自己不重複宣告。
 
-### 5.3 現況：hello-agent（[Program.cs](../eval/GeoNl2Sql.Eval/Program.cs)）
+### 5.3 現況：hello-agent（[HelloCommand.cs](../eval/GeoNl2Sql.Eval/Hello/HelloCommand.cs)）
 
 用最小的程式驗證「同一份程式碼、僅改設定即可切換模型」與「工具能被呼叫」。
 
@@ -211,7 +243,7 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Anthropic claude-haiku-4-5   #
 dotnet run --project eval/GeoNl2Sql.Eval -- hello Ollama qwen2.5-coder:3b      # 重現 coder 版失敗
 ```
 
-註：目前 `args[0]`（`hello`）並未被判讀，Program 不論第一個參數為何都執行 hello-agent；第二、三個參數才有作用。M1 加入 `seed`、`spike` 等子命令時會改成真正的子命令分派。
+註：上面是 `hello` 子命令的流程（程式在 `Hello/HelloCommand.cs`）；`Program.cs` 現在只負責讀設定並依第一個參數分派子命令。
 
 ### 5.4 M0 實測結論（本機 tool calling）
 
@@ -219,16 +251,26 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Ollama qwen2.5-coder:3b      #
 |---|---|---|
 | `qwen2.5-coder:3b` | 失敗：把工具呼叫以純文字 JSON 印出，工具未執行（共觀察 6 次） | 引數還多包一層，如 `{"city": {"city": "Taipei"}}`。`ollama show` 顯示該模型宣告支援 tools，故非 Ollama 設定問題 |
 | `qwen2.5:3b` | 20/20 成功呼叫工具並回答 | 判定方式為輸出含工具回傳值（「26°C」）；僅單一簡單工具 |
-| 雲端 `claude-haiku-4-5` | **尚未量測** | 待使用者設好 user-secrets 金鑰 |
+| 雲端 `claude-haiku-4-5` | 成功呼叫工具並回答 | `hello Anthropic claude-haiku-4-5`，回應內容正確 |
 
 **兩個容易踩的坑**
 
 1. **頂層陳述式裡的區域函式會被編譯器改名。** 直接 `AIFunctionFactory.Create(GetWeather)` 會讓工具名稱變成 `_Main_g_GetWeather_0_0`，模型看到毫無語意的名稱。一律傳 `name:` 明確命名，或改用具名類別的方法。（改名後 coder 版仍失敗，所以名稱只是次要問題，不是主因。）
 2. **模型標示支援 tools 不等於可用。** coder 特化版對工具協定的遵循度低於標準對話版。`qwen2.5:3b` 通過的僅是單一簡單工具；多工具、複雜引數是否穩定要到 M2 之後才知道，因此 R3 的「純文字 SQL 由程式解析」降級模式仍保留。
 
-### 5.5 規劃
+### 5.5 現況：資料庫、準確率量測與端到端管線
 
-- M1：資料庫建置（`seed`）、30 題標準集、準確率 spike 腳本，見 [m1-implementation-plan.md](m1-implementation-plan.md)。
+| 子命令 | 內容 |
+|---|---|
+| `seed` | 以固定亂數重建示範資料庫 `GeoNl2SqlDemo`（執行 `db/01_schema.sql` 與 `db/02_reader.sql`，並依 `ConnectionStrings:Reader` 建立 `geo_reader`）；每次資料都相同 |
+| `spike` | M1 的丟棄式準確率量測，30 題標準集見 [m1-implementation-plan.md](m1-implementation-plan.md) |
+| `pipeline` | M2 端到端量測：逐題呼叫 `Nl2SqlPipeline`，與標準答案以**執行結果**比對（`Common/ResultComparer.cs`），並統計「驗證器誤擋」（被拒絕的 SQL 改以 `geo_reader` 執行後與標準答案相同）。標準 SQL 走 `Demo` 連線，生成的 SQL 只走 `Reader` 連線。選項 `--limit`、`--runs`、`--provider`、`--model`，另有 `--fake` 以固定回應不呼叫模型，驗證流程不花費用。結果寫到 `Results/`（不進 git），並印出模型呼叫次數與 token 用量 |
+| `ask "問題"` | 手動問一題，印出每次嘗試的失敗類型、SQL、欄位、列數、是否截斷與前 20 列 |
+
+量測結果見 `feasibility-report.md` §7（M1）與 §8（M2）。
+
+### 5.6 規劃
+
 - M5：評估管線、消融實驗、攻擊語料庫（結果快取以「題目＋模型＋提示詞版本」為鍵）。
 
 ---
@@ -238,12 +280,12 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Ollama qwen2.5-coder:3b      #
 | 層級 | 位置 | 內容 |
 |---|---|---|
 | 一般設定 | `appsettings.json`（進 git） | 供應商、模型 ID、Ollama 端點、（M1 起）無密碼的資料庫連線字串範本 |
-| 本機開發機密 | user-secrets | `Model:ApiKey`；`ConnectionStrings:Demo`（覆蓋 appsettings.json 的範本值） |
-| 佈署機密 | 環境變數 | `Model__ApiKey`；含密碼的連線字串用 `ConnectionStrings__Demo` |
+| 本機開發機密 | user-secrets | `Model:ApiKey`；`ConnectionStrings:Demo`（覆蓋 appsettings.json 的範本值）；`ConnectionStrings:Reader`（`geo_reader` 的 SQL 驗證連線，含密碼；Eval 與 Tests 共用同一個 `UserSecretsId`） |
+| 佈署機密 | 環境變數 | `Model__ApiKey`；含密碼的連線字串用 `ConnectionStrings__Demo`、`ConnectionStrings__Reader` |
 | 提交前 | 本機 pre-commit：gitleaks 8.30.1 | 掃描 staged 變更 |
-| 推送時 | GitHub Secret scanning + Push protection | 已由作者確認啟用 |
+| 推送時 | GitHub Secret scanning + Push protection | 儲存庫已啟用 |
 
-設定金鑰（由使用者自行建立並貼入，不經過 AI 助理，也不寫入任何檔案）：
+設定金鑰（自行建立並貼入，不寫入任何檔案）：
 
 ```powershell
 dotnet user-secrets set "Model:ApiKey" "<your key>" --project eval/GeoNl2Sql.Eval
@@ -251,13 +293,14 @@ dotnet user-secrets set "Model:ApiKey" "<your key>" --project eval/GeoNl2Sql.Eva
 
 ---
 
-## 7. 已知限制與待辦（截至本文件日期）
+## 7. 已知限制與待辦
 
 | 項目 | 狀態 |
 |---|---|
-| 目標框架暫為 net9.0 | 待安裝 VS 2026 後改回 net10.0 與 global.json 10.0.401，並同步 README、docs、記憶檔 |
-| 雲端軌 hello-agent | 待使用者設定金鑰後補測，並更新 M0 紀錄 |
-| 殘留空資料夾 `src/GeoNl2Sql.Orchestration` | 被程式占用刪不掉，不在 git 內；關閉 VS 後手動刪除 |
-| Web 仍為範本 | M2 起接 Core |
-| `Tests` 僅有空測試 | M2 起補 |
-| `docs/tool calling失敗的原因.docx` | Gemini 的分析文件，已隨 `b7296be` 進入公開儲存庫；若不想公開需另行移出追蹤 |
+| 目標框架為 net9.0 | 之後升級到 .NET 10 時，一併調整四個專案的 `TargetFramework`、`global.json`、README 與相關文件 |
+| 本機模型的端到端準確率 | 未在 M2 量測；M1 的數字（40–47%）顯示瓶頸在語法層級，見 `feasibility-report.md` §7 |
+| 模型拒答含 `SELECT` 字樣時的失敗訊息 | 安全失敗，但訊息是「SQL 語法無法解析」而非「模型拒絕」，見 `feasibility-report.md` §8.5 |
+| 函式白名單可能偏嚴 | 目前標準題與正常查詢集無誤擋；日後放寬須逐項記錄理由，且不放寬單一 `SELECT`、資料表白名單等基本規則 |
+| Web 仍為範本 | 尚未接上 Core |
+| 持續整合 | 尚無 GitHub Actions 工作流程（離線測試已可在無資料庫環境執行） |
+| `docs/tool calling失敗的原因.docx` | M0 排查本機模型 tool calling 失敗時的分析文件 |
