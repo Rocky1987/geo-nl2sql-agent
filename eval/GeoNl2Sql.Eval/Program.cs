@@ -1,4 +1,5 @@
 using GeoNl2Sql.Core;
+using GeoNl2Sql.Eval.Agent;
 using GeoNl2Sql.Eval.Hello;
 using GeoNl2Sql.Eval.Pipeline;
 using GeoNl2Sql.Eval.Seed;
@@ -21,6 +22,9 @@ using Microsoft.Extensions.Configuration;
 //                                      -- pipeline --fake "{gold}"                不呼叫模型，驗證流程與驗證器誤擋
 //   ask "問題" [--provider P] [--model M]
 //                                手動問一題，印出 SQL、各次嘗試與前 20 列
+//   agent [--limit N] [--runs N] [--provider P] [--model M]
+//                                M3 工具選擇量測（tools.json 12 題；Agent 工具迴圈 + 三個工具），需要 ConnectionStrings:Reader
+//                                範例：-- agent --limit 3                        前 3 題（先確認 token 用量）
 // 設定來源優先序（後者覆蓋前者）：appsettings.json → user-secrets → 環境變數 → 命令列參數（僅 hello 的前兩個參數）。
 var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: true)
@@ -46,8 +50,11 @@ switch (args.FirstOrDefault()?.ToLowerInvariant())
     case "ask":
         await AskCommand.RunAsync(config, args[1..]);
         break;
+    case "agent":
+        await AgentCommand.RunAsync(config, args[1..]);
+        break;
     default:
-        Console.WriteLine("用法：dotnet run --project eval/GeoNl2Sql.Eval -- <hello|seed|spike|pipeline|ask> [參數...]");
+        Console.WriteLine("用法：dotnet run --project eval/GeoNl2Sql.Eval -- <hello|seed|spike|pipeline|ask|agent> [參數...]");
         return 1;
 }
 return 0;

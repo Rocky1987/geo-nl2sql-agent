@@ -7,7 +7,7 @@
 | 里程碑定位 | 在 M2 的「自然語言 → 驗證 → 唯讀執行」之上，補上空間資料的輸出（GeoJSON）、確定性的空間運算（質心、緩衝區），以及能在地圖上看到結果的 Web 前端；同時讓 Microsoft Agent Framework 的工具迴圈真正派上用場（`m2-implementation-plan.md` §2.2） |
 | 預估工時 | 約 7 人日（模組 6、11） |
 | 完成後 | 不打 tag（`feasibility-report.md` §5 的 M3 只產出 Demo 素材；下一個 tag 是 M4 的 `v0.2.0`） |
-| 狀態 | **進行中（2026-10-09）**：S1、S2 已 commit；S3 完成（空間索引執行計畫探測；離線 194 項、資料庫 57 項全綠；尚未 commit） |
+| 狀態 | **進行中（2026-10-09）**：S1～S3 已 commit；S4 程式與離線測試完成（`GeoAgent`／`GeoTools`／`MapResult`、`tools.json` 12 題、`agent` 子命令；離線 205 項、資料庫 60 項全綠；尚未 commit，雲端量測尚未執行） |
 
 ---
 
@@ -226,7 +226,7 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
 
 ### 6.2 迴圈上限與錯誤處理（G7）
 
-- 單次請求的工具呼叫輪數設上限（預先決定 **6 輪**，寫入設定，可調）；超過就停止並回「無法在限制內完成」。
+- 單次請求的工具呼叫輪數設上限（預先決定 **6 輪**，設定 `Agent:MaxToolRounds`，可調）；超過就停止並回「無法在限制內完成」。**實作語意**（離線測試實測）：`FunctionInvokingChatClient.MaximumIterationsPerRequest = N` 時，執行 N 輪工具呼叫後會再問模型一次，所以模型請求最多 N＋1 次；第 N＋1 次若仍要求呼叫工具，視為超限，`GeoAgentResult.HitLimit` 為 true、回固定訊息、不丟例外。
 - `query_database` 內部仍是 M2 的 3 次生成上限，所以單次請求的模型呼叫最壞情況有明確上界：外層迴圈 6 輪，每輪若都是 `query_database` 最多再 3 次生成。
 - 工具內的例外（資料庫逾時、參數非法）轉成固定訊息回給模型，**不把資料庫錯誤原文交給模型**（沿用 `SqlErrorSanitizer` 的原則）。
 - `MapResult` 屬於單次請求，以 DI 的 scoped 生命週期或 `AsyncLocal` 隔離，避免兩個同時進行的請求互相混入對方的地圖資料。
@@ -244,6 +244,12 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
 - `Agent/MapResultIsolationTests`（離線）：兩個並行請求的 `MapResult` 互不混淆。
 - `Agent/GeoToolsTests`（離線，假的執行器）：非法參數被拒絕且不送到執行器；錯誤訊息固定。
 - 量測：雲端 12 題的工具選擇結果寫入 `Results/`；每題不選錯工具為目標，若有錯，記錄代表案例與原因。
+
+**S4 實作紀錄（2026-10-09）**：
+- 新增 `Agent/MapResult`（單次請求的旁路，加鎖）、`Agent/GeoTools`（三個工具；每次請求一個新實例，持有該次的 `MapResult` 與呼叫紀錄）、`Agent/GeoAgent`（組 `ChatClientAgent` 與 `FunctionInvokingChatClient`；每次 `RunAsync` 建新工具集，所以同一個 Agent 並行處理請求不會混資料）。提示詞版本 `GeoAgent.PromptVersion = "v1"`（涵蓋 Agent 指示與三個工具描述）。
+- 工具內預期的錯誤（參數不合法、找不到行政區、資料庫錯誤）回固定訊息；資料庫錯誤只回 `SqlErrorSanitizer` 消毒後的文字。非預期例外照常往外傳（`FunctionInvokingChatClient` 預設只給模型一則通用錯誤訊息，不含例外原文）。
+- 離線測試 `Agent/GeoAgentTests`（11 項）：輪數上限（1／3／6 輪都恰好停止）、正常流程且模型收到的工具結果不含座標、20 個並行請求的地圖資料互不混入、非法緩衝區參數被擋且未連線、查詢失敗只回消毒原因、工具名稱與描述。資料庫測試 `Database/GeoToolsDatabaseTests`（3 項）：質心與緩衝區工具對真實資料庫，旁路的 GeoJSON 通過檢查。
+- `eval/GeoNl2Sql.Eval/Questions/tools.json`（12 題）與 `agent` 子命令已完成；**題組在量測之前先 commit 凍結**。判定：選對工具＝第一個工具呼叫等於預期工具；參數正確＝質心行政區名稱完全相符，緩衝區緯經度誤差 ≤ 0.001 度、半徑相差 ≤ 0.5 公尺。
 
 ---
 
@@ -331,6 +337,8 @@ S1 的前置驗證決定後續走哪條讀取路徑，**先做**。建議的 com
 | Q4 | 圖磚使用 OpenStreetMap 並標註出處，僅限本機展示 | **同意**；若日後公開部署需改用自架或付費圖磚 | S5 |
 | Q5 | M3 不打 tag | **同意**：可行性報告 §5 只在 M2、M4 打 tag | S6 |
 | Q6 | 本機 `qwen2.5:3b` 的工具選擇只量不評 | **同意**：與 M1／M2 對本機模型的處理一致 | S4 |
+
+**Q1～Q6 作者皆已確認（2026-10-09），照上表「建議」欄執行。**
 
 ---
 

@@ -1,0 +1,16 @@
+[
+  { "id": "T01", "question": "有多少座基地台目前是運轉中（Active）？", "expectedTool": "query_database" },
+  { "id": "T02", "question": "每個行政區各有幾位客戶？", "expectedTool": "query_database" },
+  { "id": "T03", "question": "Which district has the largest population?", "expectedTool": "query_database" },
+  { "id": "T04", "question": "列出 3500MHz 頻段的基地台名稱。", "expectedTool": "query_database" },
+
+  { "id": "T05", "question": "中央區的質心座標是多少？", "expectedTool": "get_district_centroid", "districtName": "中央區" },
+  { "id": "T06", "question": "請告訴我海濱區的中心點在哪裡。", "expectedTool": "get_district_centroid", "districtName": "海濱區" },
+  { "id": "T07", "question": "What is the centroid of 北原區?", "expectedTool": "get_district_centroid", "districtName": "北原區" },
+  { "id": "T08", "question": "青山區的重心位置（經緯度）？", "expectedTool": "get_district_centroid", "districtName": "青山區" },
+
+  { "id": "T09", "question": "座標（緯度 25.05、經度 121.50）周圍 2000 公尺內有幾座基地台？", "expectedTool": "buffer_around_point", "latitude": 25.05, "longitude": 121.50, "radiusMeters": 2000 },
+  { "id": "T10", "question": "Show the area within 500 meters of latitude 25.02, longitude 121.55 and how many base stations are inside.", "expectedTool": "buffer_around_point", "latitude": 25.02, "longitude": 121.55, "radiusMeters": 500 },
+  { "id": "T11", "question": "以緯度 24.95、經度 121.45 為圓心，3 公里範圍內有哪些基地台？", "expectedTool": "buffer_around_point", "latitude": 24.95, "longitude": 121.45, "radiusMeters": 3000 },
+  { "id": "T12", "question": "在緯度 25.10、經度 121.60 畫一個半徑 1.5 公里的範圍，裡面有多少基地台？", "expectedTool": "buffer_around_point", "latitude": 25.10, "longitude": 121.60, "radiusMeters": 1500 }
+]

@@ -60,7 +60,7 @@ public static class GeoJsonBuilder
     /// 複製幾何並把座標四捨五入到 <see cref="CoordinateDecimals"/> 位。
     /// </summary>
     /// <param name="geometry">原幾何（不會被修改）。</param>
-    private static Geometry Round(Geometry geometry)
+    internal static Geometry Round(Geometry geometry)
     {
         var copy = geometry.Copy();
         copy.Apply(new RoundFilter());

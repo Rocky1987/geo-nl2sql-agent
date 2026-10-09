@@ -29,6 +29,7 @@
     <!-- spike 子命令讀取的 schema 文字與題集 -->
     <None Include="..\..\db\schema-description.md" Link="db\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Questions\questions.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Questions\tools.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
