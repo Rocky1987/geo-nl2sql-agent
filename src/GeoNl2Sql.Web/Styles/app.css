@@ -1,0 +1,108 @@
+/*
+ * Tailwind 的輸入檔：編譯成 wwwroot/css/app.css（編譯結果有入版控，clone 後不需先編譯）。
+ * 重新編譯：在儲存庫根目錄執行 ./tools/build-css.ps1。
+ * 配色與圓角沿用 shadcn/ui 的設計語彙（中性色、細邊框、淺陰影），元件以 @apply 手寫，不使用 React。
+ */
+@import "tailwindcss";
+
+@source "../Views";
+@source "../wwwroot/js";
+
+@theme {
+  --color-background: #fafafa;
+  --color-foreground: #0a0a0a;
+  --color-card: #ffffff;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-border: #e4e4e7;
+  --color-primary: #18181b;
+  --color-primary-foreground: #fafafa;
+  --color-ring: #a1a1aa;
+  --color-destructive: #dc2626;
+  --color-accent: #2563eb;
+  --font-sans: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-image: radial-gradient(60rem 24rem at 85% -8rem, rgb(37 99 235 / 0.09), transparent),
+      radial-gradient(40rem 20rem at 0% -6rem, rgb(24 24 27 / 0.05), transparent);
+    background-repeat: no-repeat;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-card shadow-sm;
+  }
+  .card-title {
+    @apply text-sm font-semibold tracking-tight;
+  }
+  .input {
+    @apply w-full rounded-md border border-border bg-card px-3 py-2 text-sm shadow-xs
+      placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium
+      text-primary-foreground shadow-xs transition-colors hover:bg-primary/90
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-outline {
+    @apply inline-flex items-center rounded-md border border-border bg-card px-3 py-1.5 text-left text-xs font-medium
+      shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-error {
+    @apply inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-2.5 py-0.5 text-xs font-medium text-destructive;
+  }
+  .logo-mark {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm;
+  }
+  .example {
+    @apply flex w-full items-start gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 text-left text-xs leading-relaxed
+      shadow-xs transition hover:border-ring hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+  .example-tag {
+    @apply mt-px shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-accent;
+  }
+  .legend {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .legend-dot {
+    @apply inline-block h-2.5 w-2.5 rounded-full;
+  }
+  .map-empty {
+    @apply pointer-events-none absolute inset-x-0 bottom-4 z-[1000] mx-auto w-fit max-w-[90%] rounded-lg border border-border
+      bg-card/95 px-4 py-2 text-center text-xs leading-relaxed text-muted-foreground shadow-md;
+  }
+  .code-block {
+    @apply overflow-x-auto rounded-lg bg-zinc-900 p-4 font-mono text-xs leading-relaxed text-zinc-100;
+  }
+  .table-wrap {
+    @apply max-h-96 overflow-auto rounded-md border border-border;
+  }
+  .data-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+  .data-table th {
+    @apply sticky top-0 whitespace-nowrap border-b border-border bg-muted px-3 py-2 font-medium text-muted-foreground;
+  }
+  .data-table td {
+    @apply whitespace-nowrap border-b border-border px-3 py-2;
+  }
+  .data-table tbody tr:nth-child(even) {
+    @apply bg-muted/50;
+  }
+  .data-table tbody tr:hover {
+    @apply bg-muted;
+  }
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+}

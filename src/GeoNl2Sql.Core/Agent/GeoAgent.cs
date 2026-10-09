@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Text;
 using GeoNl2Sql.Core.Nl2Sql;
 using GeoNl2Sql.Core.Spatial;
 using Microsoft.Agents.AI;
@@ -26,6 +28,21 @@ public sealed class AgentOptions
 /// <param name="Query">最近一次 <c>query_database</c> 的完整結果（含 SQL）；沒呼叫過為 <c>null</c>。</param>
 /// <param name="HitLimit">true 表示因超過 <see cref="AgentOptions.MaxToolRounds"/> 而停止。</param>
 public sealed record GeoAgentResult(string Answer, FeatureCollection? Map, IReadOnlyList<ToolCall> ToolCalls, Nl2SqlResult? Query, bool HitLimit);
+
+/// <summary><see cref="GeoAgent.RunStreamingAsync"/> 送出的事件基底型別。</summary>
+public abstract record GeoAgentEvent;
+
+/// <summary>模型要求呼叫某個工具（工具即將執行）。</summary>
+/// <param name="Name">工具名稱。</param>
+public sealed record ToolStarted(string Name) : GeoAgentEvent;
+
+/// <summary>回答文字的一小段。</summary>
+/// <param name="Text">這一段的文字。</param>
+public sealed record AnswerDelta(string Text) : GeoAgentEvent;
+
+/// <summary>整個請求結束，附完整結果（一定是最後一個事件）。</summary>
+/// <param name="Result">與 <see cref="GeoAgent.RunAsync"/> 相同的結果。</param>
+public sealed record Completed(GeoAgentResult Result) : GeoAgentEvent;
 
 /// <summary>
 /// 組裝 Microsoft Agent Framework 的 <see cref="ChatClientAgent"/>、三個工具與工具迴圈上限（docs/m3-implementation-plan.md §6）。
@@ -82,6 +99,60 @@ public sealed class GeoAgent
     /// <returns>回答、地圖資料與工具呼叫紀錄。模型呼叫本身的例外會往外傳。</returns>
     public async Task<GeoAgentResult> RunAsync(string question, CancellationToken cancellationToken = default)
     {
+        var (agent, tools) = CreateAgent();
+
+        var response = await agent.RunAsync(question, cancellationToken: cancellationToken);
+
+        // 超過上限時迴圈停止，最後一則訊息仍是「要求呼叫工具」而不是答案。
+        var hitLimit = response.Messages.LastOrDefault()?.Contents.OfType<FunctionCallContent>().Any() == true;
+        return new GeoAgentResult(hitLimit ? LimitMessage : response.Text, tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, hitLimit);
+    }
+
+    /// <summary>
+    /// 串流版的 <see cref="RunAsync"/>：模型要呼叫工具時送出 <see cref="ToolStarted"/>，產生回答文字時逐段送出 <see cref="AnswerDelta"/>，
+    /// 最後送出一次 <see cref="Completed"/>（內容與 <see cref="RunAsync"/> 的結果相同，唯一差別是回答只含最後一次工具呼叫之後的文字，不含呼叫前的旁白）。
+    /// </summary>
+    /// <param name="question">使用者的問題。</param>
+    /// <param name="cancellationToken">取消權杖。</param>
+    /// <returns>依發生順序排列的事件；模型呼叫本身的例外會往外傳。</returns>
+    public async IAsyncEnumerable<GeoAgentEvent> RunStreamingAsync(
+        string question, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var (agent, tools) = CreateAgent();
+        var text = new StringBuilder();
+        var lastWasToolCall = false;
+
+        await foreach (var update in agent.RunStreamingAsync(question, cancellationToken: cancellationToken))
+        {
+            foreach (var content in update.Contents)
+            {
+                switch (content)
+                {
+                    case FunctionCallContent call:
+                        lastWasToolCall = true;
+                        text.Clear(); // 呼叫工具前的旁白（例如「我來查資料庫」）不算回答，只保留工具之後的文字。
+                        yield return new ToolStarted(call.Name);
+                        break;
+                    case TextContent { Text.Length: > 0 } piece:
+                        lastWasToolCall = false;
+                        text.Append(piece.Text);
+                        yield return new AnswerDelta(piece.Text);
+                        break;
+                    case FunctionResultContent:
+                        lastWasToolCall = false;
+                        break;
+                }
+            }
+        }
+
+        // 與 RunAsync 相同：停在「要求呼叫工具」而沒有後續結果，代表超過輪數上限。
+        yield return new Completed(new GeoAgentResult(lastWasToolCall ? LimitMessage : text.ToString(),
+            tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, lastWasToolCall));
+    }
+
+    /// <summary>建立本次請求專用的 Agent 與工具集（含獨立的地圖資料與工具輪數上限）。</summary>
+    private (ChatClientAgent Agent, GeoTools Tools) CreateAgent()
+    {
         var tools = new GeoTools(_pipeline, _spatial, new MapResult());
         var looping = new FunctionInvokingChatClient(_client) { MaximumIterationsPerRequest = _options.MaxToolRounds };
         var agent = new ChatClientAgent(looping, new ChatClientAgentOptions
@@ -95,11 +166,6 @@ public sealed class GeoAgent
                 MaxOutputTokens = 1024,
             },
         });
-
-        var response = await agent.RunAsync(question, cancellationToken: cancellationToken);
-
-        // 超過上限時迴圈停止，最後一則訊息仍是「要求呼叫工具」而不是答案。
-        var hitLimit = response.Messages.LastOrDefault()?.Contents.OfType<FunctionCallContent>().Any() == true;
-        return new GeoAgentResult(hitLimit ? LimitMessage : response.Text, tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, hitLimit);
+        return (agent, tools);
     }
 }

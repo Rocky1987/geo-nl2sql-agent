@@ -34,6 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\GeoNl2Sql.Core\GeoNl2Sql.Core.csproj" />
+    <ProjectReference Include="..\..\src\GeoNl2Sql.Web\GeoNl2Sql.Web.csproj" />
   </ItemGroup>
 
 </Project>

@@ -493,3 +493,6 @@ secrets.json
 eval/results/cache/
 # spike 每次執行的輸出；要公開的最終結果再以 git add -f 加入
 eval/GeoNl2Sql.Eval/Results/
+
+# Tailwind 獨立 CLI（tools/build-css.ps1 會下載）
+tools/bin/

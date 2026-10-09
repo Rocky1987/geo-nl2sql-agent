@@ -28,8 +28,25 @@ public class GeoAgentTests
             return Task.FromResult(new ChatResponse(script(list, Interlocked.Increment(ref _calls))));
         }
 
-        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
+        /// <summary>把腳本的回應拆成更新：文字內容每兩個字元一段，其餘內容（工具呼叫）各一段。</summary>
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var message = script(messages.ToList(), Interlocked.Increment(ref _calls));
+            foreach (var content in message.Contents)
+            {
+                if (content is TextContent text)
+                {
+                    for (var i = 0; i < text.Text.Length; i += 2)
+                        yield return new ChatResponseUpdate(ChatRole.Assistant, text.Text.Substring(i, Math.Min(2, text.Text.Length - i)));
+                }
+                else
+                {
+                    yield return new ChatResponseUpdate(ChatRole.Assistant, [content]);
+                }
+            }
+            await Task.CompletedTask;
+        }
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
@@ -175,6 +192,48 @@ public class GeoAgentTests
         Assert.Contains(SqlErrorSanitizer.Sanitize(208), text);
         Assert.DoesNotContain("SqlExecutionException", text);
         Assert.Equal(0, tools.Map.Count);
+    }
+
+    /// <summary>串流：先送工具開始事件，再逐段送回答文字，最後送與非串流相同的完整結果；地圖資料同樣走旁路。</summary>
+    [Fact]
+    public async Task Streaming_EmitsToolStep_ThenAnswerDeltas_ThenCompleted()
+    {
+        var client = new ScriptedChatClient((messages, n) => n == 1
+            ? new ChatMessage(ChatRole.Assistant,
+                [new FunctionCallContent("c1", "query_database", new Dictionary<string, object?> { ["question"] = "列出基地台" })])
+            : new ChatMessage(ChatRole.Assistant, "找到 1 座基地台。"));
+        var agent = new GeoAgent(client, Pipeline((_, _) => Task.FromResult(PointResult(121.5, 25.05))), UnreachableSpatial(), new AgentOptions());
+
+        var events = new List<GeoAgentEvent>();
+        await foreach (var e in agent.RunStreamingAsync("列出基地台")) events.Add(e);
+
+        Assert.Equal("query_database", Assert.IsType<ToolStarted>(events[0]).Name);
+        var deltas = events.OfType<AnswerDelta>().Select(d => d.Text).ToList();
+        Assert.True(deltas.Count > 1);
+        Assert.Equal("找到 1 座基地台。", string.Concat(deltas));
+        var completed = Assert.IsType<Completed>(events[^1]);
+        Assert.Equal("找到 1 座基地台。", completed.Result.Answer);
+        Assert.False(completed.Result.HitLimit);
+        Assert.Single(completed.Result.Map!);
+    }
+
+    /// <summary>串流版同樣遵守輪數上限（G7）：停止時 Completed 為固定訊息與 HitLimit。</summary>
+    [Fact]
+    public async Task Streaming_HitsToolRoundLimit()
+    {
+        var client = new ScriptedChatClient((_, n) => new ChatMessage(ChatRole.Assistant,
+            [new FunctionCallContent($"c{n}", "buffer_around_point",
+                new Dictionary<string, object?> { ["latitude"] = 999.0, ["longitude"] = 121.0, ["radiusMeters"] = 100.0 })]));
+        var agent = new GeoAgent(client, Pipeline((_, _) => throw new InvalidOperationException()), UnreachableSpatial(),
+            new AgentOptions { MaxToolRounds = 2 });
+
+        GeoAgentResult? result = null;
+        await foreach (var e in agent.RunStreamingAsync("永遠呼叫工具"))
+            if (e is Completed c) result = c.Result;
+
+        Assert.True(result!.HitLimit);
+        Assert.Equal(GeoAgent.LimitMessage, result.Answer);
+        Assert.Equal(3, client.Calls);
     }
 
     /// <summary>三個工具都有名稱與非空描述，且緩衝區工具的描述寫明「緯度在前」與「公尺」（模型靠這些選工具與填參數）。</summary>

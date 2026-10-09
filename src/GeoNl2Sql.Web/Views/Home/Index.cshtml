@@ -1,8 +1,88 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "提問";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<section class="mb-8 max-w-3xl">
+    <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">基地台資料，<span class="text-accent">直接用中文問</span></h1>
+    <div class="mt-4 max-w-2xl space-y-2 text-sm leading-relaxed text-muted-foreground">
+        <p>基地台是電信業者架設的訊號發射站，手機能上網、通話，靠的就是它們。電信公司的資料庫裡，記錄了每座基地台的位置、使用的頻段、目前是否運轉，以及它在哪個行政區。</p>
+        <p>平常要從這些資料找答案，得請工程師寫資料庫查詢語法。這個系統讓你直接用日常的話提問，例如「哪個區的基地台最多」，它會替你查資料庫、整理成回答，需要時還會把結果標在地圖上。</p>
+        <p>系統只能讀取資料，不會修改或刪除任何內容。這裡的資料是為了示範而虛構的，不是真實的基地台。</p>
+    </div>
+</section>
+
+<div class="grid gap-6 lg:grid-cols-5">
+    <div class="flex flex-col gap-6 lg:col-span-2">
+        <section class="card p-5">
+            <form id="ask-form" class="flex flex-col gap-3">
+                <label for="question" class="card-title">你的問題</label>
+                <textarea id="question" class="input min-h-24 resize-y" maxlength="500" rows="3"
+                          placeholder="例如：哪個行政區的基地台最多？"></textarea>
+                <button id="submit" type="submit" class="btn w-full">送出問題</button>
+            </form>
+            <div class="mt-5 border-t border-border pt-4">
+                <p class="mb-2 text-xs font-medium text-muted-foreground">試試這些範例</p>
+                <div class="flex flex-col gap-2">
+                    <button type="button" class="example">
+                        <span class="example-tag">統計</span>
+                        <span>每個行政區各有幾座基地台？</span>
+                    </button>
+                    <button type="button" class="example">
+                        <span class="example-tag">中心點</span>
+                        <span>中央區的中心點座標是多少？</span>
+                    </button>
+                    <button type="button" class="example">
+                        <span class="example-tag">附近範圍</span>
+                        <span>座標（緯度 25.05、經度 121.50）周圍 2000 公尺內有幾座基地台？</span>
+                    </button>
+                    <button type="button" class="example">
+                        <span class="example-tag">地圖</span>
+                        <span>列出 3500MHz 頻段的基地台，並顯示在地圖上。</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card p-5" id="answer-card">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="card-title">回答</h2>
+                <span id="tools" class="flex flex-wrap justify-end gap-1"></span>
+            </div>
+            <p id="answer" class="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">送出問題後，回答會顯示在這裡。</p>
+        </section>
+    </div>
+
+    <section class="card relative overflow-hidden lg:col-span-3" aria-label="地圖">
+        <div class="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
+            <h2 class="card-title">地圖</h2>
+            <ul class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <li class="legend"><i class="legend-dot bg-zinc-900"></i>基地台</li>
+                <li class="legend"><i class="legend-dot bg-red-600"></i>區域中心點</li>
+                <li class="legend"><i class="legend-dot bg-blue-600/30 ring-1 ring-blue-600"></i>周邊範圍</li>
+            </ul>
+        </div>
+        <div class="relative">
+            <div id="map" class="h-[28rem] w-full lg:h-[34rem]"></div>
+            <p id="map-empty" class="map-empty">送出問題後，空間結果會畫在這裡。</p>
+        </div>
+    </section>
 </div>
+
+<div id="results" class="mt-6 hidden flex-col gap-6">
+    <section class="card hidden p-5" id="table-card">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="card-title">結果</h2>
+            <span id="row-count" class="badge"></span>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead id="thead"></thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/app.js" asp-append-version="true"></script>
+}

@@ -8,6 +8,13 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 與 Eval、測試專案共用 user-secrets，連線字串與金鑰只需設定一次 -->
+    <UserSecretsId>ee2f1e92-e69a-483b-a268-17929939b871</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NL2SQL 管線在啟動時讀取的 schema 說明；連結並複製到輸出目錄的 db/ 下（與 Eval 相同） -->
+    <None Include="..\..\db\schema-description.md" Link="db\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

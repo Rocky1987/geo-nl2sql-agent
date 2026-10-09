@@ -7,7 +7,7 @@
 | 里程碑定位 | 在 M2 的「自然語言 → 驗證 → 唯讀執行」之上，補上空間資料的輸出（GeoJSON）、確定性的空間運算（質心、緩衝區），以及能在地圖上看到結果的 Web 前端；同時讓 Microsoft Agent Framework 的工具迴圈真正派上用場（`m2-implementation-plan.md` §2.2） |
 | 預估工時 | 約 7 人日（模組 6、11） |
 | 完成後 | 不打 tag（`feasibility-report.md` §5 的 M3 只產出 Demo 素材；下一個 tag 是 M4 的 `v0.2.0`） |
-| 狀態 | **進行中（2026-10-09）**：S1～S4 程式已完成並 commit（S4 的 commit 為 `4bd7fb9`）；雲端與本機的工具選擇量測都已執行並記錄；尚未 push |
+| 狀態 | **進行中（2026-10-09）**：S1～S4 已完成並 push；S5（Web 前端）程式已完成，尚未 commit，待作者在瀏覽器確認並截圖 |
 
 ---
 
@@ -265,7 +265,7 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
 
 ---
 
-## 7. S5：Web 前端（ASP.NET Core MVC + Leaflet）
+## 7. S5：Web 前端（ASP.NET Core MVC + Leaflet + Tailwind）
 
 ### 7.1 JSON 端點
 
@@ -280,12 +280,13 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
   "rows": [["…"]],
   "truncated": false,
   "geoJson": { "type": "FeatureCollection", "features": [] },
-  "toolsCalled": ["query_database"]
+  "toolsCalled": ["query_database"],
+  "error": null
 }
 ```
 
 - `geography` 以外的 `byte[]` 欄位一律轉成 `"<N bytes>"` 字串；`geography` 欄位轉為 GeoJSON，**不**把位元組直接序列化進 `rows`。
-- 失敗時 `success=false` 與固定的失敗原因，不回傳堆疊追蹤、不回傳資料庫錯誤原文。
+- 失敗時 `success=false`，`error` 為固定訊息（超過工具輪數、查詢失敗、模型服務出錯），不回傳堆疊追蹤、不回傳資料庫錯誤原文；模型服務出錯回 502，例外細節只寫入伺服器日誌。
 - 這個端點同時給評估程式使用（可行性報告 §3 的「JSON 端點」），所以欄位名稱視為契約，不隨意更動。
 - 問題長度設上限（預先決定 500 字元），超過回 400。
 
@@ -294,6 +295,7 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
 - 單頁：上方提問框；左側是 Leaflet 地圖，右側是「回答、生成的 SQL、結果表」。
 - `geoJson` 非空才顯示地圖並 `fitBounds`；點位以圓點、多邊形以半透明填色；點擊要素顯示 `properties`。
 - 底圖用 OpenStreetMap 圖磚並顯示出處（Attribution）。圖磚服務有使用政策，僅供本機展示等低流量情境；M3 不處理離線底圖。
+- 樣式用 Tailwind CSS（2026-10-09 作者決定）：以官方獨立 CLI 編譯，不需要 Node；`Styles/app.css` 是輸入檔，編譯結果 `wwwroot/css/app.css` **入版控**（clone 後不需先編譯），重新編譯用 `tools/build-css.ps1`（CLI 下載到被忽略的 `tools/bin/`）。元件（輸入框、按鈕、卡片、表格、標籤）以 `@apply` 手寫，配色與圓角沿用 shadcn/ui 的語彙；**不使用 React 與 shadcn/ui 本身**（需要另開 Node 建置鏈，超出展示頁的必要範圍）。範本附的 Bootstrap、jQuery 已移除。
 - Leaflet 以**本地檔案**放在 `wwwroot/lib`（不依賴 CDN；M6 的容器也不需對外連線載入腳本）。
 - 結果表以純文字／`textContent` 寫入，**不用 `innerHTML` 拼接資料**，避免資料表內容中的字串變成頁面腳本。
 - 範例問題按鈕 3–4 個（含一題質心、一題緩衝區），供 Demo 影片使用。
@@ -304,13 +306,22 @@ M3 的 Web 端點**沒有使用者驗證、角色、PII 遮蔽與稽核**，這�
 
 ### 7.4 設定
 
-連線字串與金鑰沿用 M2 的 user-secrets／環境變數；`Web` 專案新增 `UserSecretsId`，讀 `ConnectionStrings:Reader`、`Model` 區段，不新增新的機密格式。**不得**把金鑰寫進 `appsettings.json`。
+連線字串與金鑰沿用 M2 的 user-secrets／環境變數；`Web` 專案與 Eval、測試專案**共用同一個 `UserSecretsId`**（連線字串與金鑰只需設定一次），讀 `ConnectionStrings:Reader`、`Model` 區段，不新增新的機密格式。**不得**把金鑰寫進 `appsettings.json`。
 
 ### 7.5 驗證（S5 的完成條件）
 
 - `dotnet run --project src/GeoNl2Sql.Web` 後，在瀏覽器問「質心」「緩衝區」「一般資料」三種題目，各自看到預期的地圖或資料表（作者手動確認，並截圖作 Demo 素材；截圖不放含機器路徑的畫面）。
-- 離線測試：控制器以假的代理程式測試序列化契約、問題長度上限、失敗路徑不洩漏例外細節。
+- 離線測試（`tests/.../Web/QueryControllerTests.cs`，9 項）：控制器以假的代理程式測試序列化契約、問題長度上限、失敗路徑不洩漏例外細節。
 - 以 `GeoJsonValidator` 檢查端點回傳的 `geoJson` 通過（G1 的端對端版本）。
+
+### 7.6 實作紀錄（2026-10-09）
+
+- `POST /query`（`Controllers/QueryController.cs`）以 `AgentRunner` 委派呼叫 `GeoAgent`，所以測試不需要模型與資料庫；`GeoAgent`、管線、執行器都是單例（每次請求在 `GeoAgent.RunAsync` 內建立新的 `GeoTools` 與 `MapResult`，已有並行測試）。
+- 串流：新增 `POST /query/stream`（`Controllers/QueryStreamController.cs`），回應為逐行 JSON（NDJSON）：`step`（開始呼叫某工具）、`answer`（回答文字片段）、`result`（最後的完整 `QueryResponse`）、`error`（固定訊息）。Core 的 `GeoAgent.RunStreamingAsync` 送出 `ToolStarted`、`AnswerDelta`、`Completed` 三種事件；呼叫工具前的旁白不算回答，會被清掉。`POST /query` 維持原契約（評估與測試使用）。前端只用串流端點：等待時顯示「正在查詢資料庫…」等進度，回答文字逐段出現，結束時再畫 SQL、表格與地圖。
+- 預設模型：`appsettings.json` 改為雲端（`Anthropic`／`claude-haiku-4-5`），與 §6 的「Web 預設走雲端」一致；本機模型用 `Model__Provider=Ollama`、`Model__ModelId=qwen2.5:3b` 覆寫。
+- 離線測試 219 項全綠（原 205 + 9 + 串流 5）。
+- 以 `claude-haiku-4-5` 對執行中的網站各問一題（每題一次請求）：質心 → `get_district_centroid`，地圖 1 個質心點；緩衝區 → `buffer_around_point`，地圖 1 個緩衝區加 5 座基地台；3500MHz 基地台 → `query_database`，結果表 47 列、空間欄位為固定文字、地圖 47 個點。三者 `success=true`，`geoJson` 皆可由前端繪製。空白問題回 400。
+- 瀏覽器操作（點選範例、地圖彈出視窗）與截圖由作者確認。
 
 ---
 
