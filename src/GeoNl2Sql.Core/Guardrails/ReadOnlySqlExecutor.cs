@@ -23,7 +23,9 @@ public sealed class QueryLimits
 /// <param name="Columns">欄位名稱。</param>
 /// <param name="Rows">資料列；geography／geometry 欄位為原始位元組（<c>byte[]</c>），其餘為 ADO.NET 的 CLR 型別，SQL NULL 為 <c>null</c>。</param>
 /// <param name="Truncated">true 表示結果超過 <see cref="QueryLimits.MaxRows"/>，後面的列沒有讀回。</param>
-public sealed record SqlQueryResult(IReadOnlyList<string> Columns, IReadOnlyList<object?[]> Rows, bool Truncated);
+/// <param name="ColumnTypes">各欄的 SQL Server 型別名稱（小寫，UDT 去掉資料庫前綴，例如 <c>geography</c>、<c>nvarchar</c>）；與 <paramref name="Columns"/> 等長。未提供時為 <c>null</c>，下游無法辨識空間欄位。</param>
+public sealed record SqlQueryResult(IReadOnlyList<string> Columns, IReadOnlyList<object?[]> Rows, bool Truncated,
+    IReadOnlyList<string>? ColumnTypes = null);
 
 /// <summary>
 /// 第二層防線的執行端：以低權限 SQL login（<c>geo_reader</c>）執行 SQL，並套用逾時與列數上限。
@@ -62,6 +64,7 @@ public sealed class ReadOnlySqlExecutor
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
         var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
+        var columnTypes = Enumerable.Range(0, reader.FieldCount).Select(i => NormalizeTypeName(reader.GetDataTypeName(i))).ToList();
         var rows = new List<object?[]>();
         var truncated = false;
         while (await reader.ReadAsync(cancellationToken))
@@ -79,8 +82,14 @@ public sealed class ReadOnlySqlExecutor
             // 多語句時，後面語句的錯誤要等讀到對應的結果才會拋出。
             while (await reader.NextResultAsync(cancellationToken)) { }
         }
-        return new SqlQueryResult(columns, rows, truncated);
+        return new SqlQueryResult(columns, rows, truncated, columnTypes);
     }
+
+    /// <summary>
+    /// 整理 <see cref="SqlDataReader.GetDataTypeName(int)"/> 的結果：UDT 會帶資料庫與結構前綴（例如 <c>Db.sys.geography</c>），只取最後一段並轉小寫。
+    /// </summary>
+    /// <param name="name">驅動程式回報的型別名稱。</param>
+    private static string NormalizeTypeName(string name) => name[(name.LastIndexOf('.') + 1)..].ToLowerInvariant();
 
     /// <summary>
     /// 讀出目前這一列。geography／geometry 是 UDT，沒有 Microsoft.SqlServer.Types 時不能 GetValue，改讀原始位元組。
