@@ -7,7 +7,7 @@
 | 里程碑定位 | 把 M1 的丟棄式 spike 換成正式的 Core 模組，並建立「AST 白名單 + 唯讀 login」兩層**互相獨立**的確定性防護（`feasibility-report.md` §5） |
 | 預估工時 | 約 9 人日（模組 3、4、5：4 + 3 + 2） |
 | 完成後 | 打 `v0.1.0`（MVP 可公開） |
-| 狀態 | **進行中（2026-10-09）**：S1、S2 完成（已 commit）；S3 完成（`ReadOnlySqlExecutor`、`Database/ReadOnlyBoundaryTests`，含 login 與權限，全部測試通過）；S4–S7 未開始 |
+| 狀態 | **進行中（2026-10-09）**：S1、S2、S3 完成（已 commit）；S4 完成（`SqlErrorSanitizer`、`SqlExtractor`、`PromptBuilder` 移入 Core，described／plain 兩版 prompt 與 M1 記錄逐字相同；尚未 commit）；S5–S7 未開始 |
 
 ---
 
@@ -362,7 +362,7 @@ dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？"
 | S6 | `pipeline`、`ask` 子命令 | 雲端 described ≥ 30/30；誤擋 0；本機量到數字 | 金鑰、資料庫 | 1 日 |
 | S7 | 文件、commit、`v0.1.0` | M2 驗收項目全勾 | 作者確認 tag | 1 日 |
 
-S1、S2、S4、S5 都不需要資料庫與金鑰。進度：S1、S2、S3 完成；S4–S7 未開始。建議的 commit 切點：S1 一個（凍結）、S2 一個、S3 一個、S4+S5 一個、S6+S7 一個。
+S1、S2、S4、S5 都不需要資料庫與金鑰。進度：S1、S2、S3、S4 完成；S5–S7 未開始。建議的 commit 切點：S1 一個（凍結）、S2 一個、S3 一個、S4+S5 一個、S6+S7 一個。
 
 ### 10.2 需要作者決定的事
 

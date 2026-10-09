@@ -26,6 +26,9 @@
     <!-- 攻擊語料庫與正常查詢集；30 題標準 SQL 直接連結 Eval 的 questions.json，不另抄一份 -->
     <None Update="Guardrails\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\eval\GeoNl2Sql.Eval\Questions\questions.json" Link="Guardrails\questions.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- PromptBuilder 的快照測試：schema 原文與 M1 量測時的 system 訊息 -->
+    <None Include="..\..\db\schema-description.md" Link="Prompting\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Prompting\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

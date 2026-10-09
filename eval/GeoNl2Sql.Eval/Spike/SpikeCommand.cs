@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using GeoNl2Sql.Core;
+using GeoNl2Sql.Core.Nl2Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -66,7 +67,7 @@ public static class SpikeCommand
         var questionsBytes = await File.ReadAllBytesAsync(questionsPath);
         var questions = JsonSerializer.Deserialize<List<Gold>>(questionsBytes, Json)!
             .Take(int.Parse(Opt("--limit") ?? "30")).ToList();
-        var system = BuildSystemPrompt(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "db", "schema-description.md")), schemaVersion);
+        var system = PromptBuilder.BuildSystemPrompt(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "db", "schema-description.md")), schemaVersion);
         using var client = fake is null ? ChatClientFactory.Create(options) : null;
         // 輸出目錄是專案原始碼下的 Results/（bin/<組態>/<TFM>/ 往上三層），不是執行時的工作目錄。
         var resultsDir = Directory.CreateDirectory(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Results"))).FullName;
@@ -112,43 +113,6 @@ public static class SpikeCommand
     }
 
     /// <summary>
-    /// 組 system 訊息：輸出規則與 T-SQL 方言提醒，加上 schema 文字。
-    /// schema 文字取自 schema-description.md 從「資料庫為」到「## 維護注意」之前的內容；
-    /// plain 版再去掉說明欄、表名後的括號說明與資料表段落內的說明文字，只留表名、欄名、型別、關聯與空間慣例，
-    /// 所以兩個版本的其餘文字完全相同（§6.1）。
-    /// </summary>
-    /// <param name="markdown">schema-description.md 的全文。</param>
-    /// <param name="schemaVersion">plain 或 described。</param>
-    /// <returns>完整的 system 訊息。</returns>
-    private static string BuildSystemPrompt(string markdown, string schemaVersion)
-    {
-        var start = markdown.IndexOf("資料庫為", StringComparison.Ordinal);
-        var lines = markdown[start..markdown.IndexOf("## 維護注意", StringComparison.Ordinal)].TrimEnd().Split('\n').Select(l => l.TrimEnd('\r'));
-        if (schemaVersion == "plain")
-        {
-            var section = "";
-            lines = lines.Select(l =>
-            {
-                if (l.StartsWith("## ")) section = l;
-                if (l.StartsWith('|')) return string.Join('|', l.Split('|').Take(3)) + "|";
-                if (l.StartsWith("### ")) return Regex.Replace(l, "（.*）", "");
-                return section == "## 資料表" && l.Length > 0 && !l.StartsWith('#') ? null : l;
-            }).OfType<string>();
-        }
-        return $"""
-            你是 SQL Server 的 NL2SQL 助手。請依下方 schema，把使用者的問題轉成一個 T-SQL 查詢。
-            規則：
-            - 只輸出一個 SELECT 語句（可用 WITH 開頭），放在 ```sql 區塊內，不要解釋。
-            - 方言是 T-SQL：取前 N 筆用 TOP，不用 LIMIT。
-            - 空間欄位是 SQL Server geography，使用方法呼叫語法，例如 a.Location.STDistance(b.Location)；距離單位是公尺。
-
-            # Schema
-
-            {string.Join('\n', lines)}
-            """;
-    }
-
-    /// <summary>
     /// 呼叫模型（或使用假回應）一次，抽出 SQL、做前置檢查、以 spike_reader 執行並與標準結果比對。
     /// </summary>
     /// <param name="client">聊天用戶端；使用假回應時為 null。</param>
@@ -178,11 +142,9 @@ public static class SpikeCommand
         Attempt Result(string? sql, string? failure, string? error) =>
             new(response.Text, sql, failure, error, ms, response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount);
 
-        // 抽取：優先取 ```sql 區塊，否則取第一個 SELECT／WITH 起始到結尾的文字。
-        var match = Regex.Match(response.Text, @"```sql\s*(.*?)```", RegexOptions.Singleline | RegexOptions.IgnoreCase);
-        if (!match.Success) match = Regex.Match(response.Text, @"\b(?:SELECT|WITH)\b.*", RegexOptions.Singleline | RegexOptions.IgnoreCase);
-        if (!match.Success) return Result(null, "no_sql", null);
-        var sql = (match.Groups.Count > 1 ? match.Groups[1].Value : match.Value).Trim().TrimEnd(';').Trim();
+        // 抽取規則已移入 Core 的 SqlExtractor。
+        var sql = SqlExtractor.Extract(response.Text);
+        if (sql is null) return Result(null, "no_sql", null);
 
         // 前置檢查（便宜的過濾，不是安全邊界）：SELECT／WITH 開頭、單一語句、不含寫入或切換身分的關鍵字。
         if (!Regex.IsMatch(sql, @"^(SELECT|WITH)\b", RegexOptions.IgnoreCase)) return Result(sql, "precheck", "不是以 SELECT 或 WITH 開頭");
