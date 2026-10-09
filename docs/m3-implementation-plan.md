@@ -7,7 +7,7 @@
 | 里程碑定位 | 在 M2 的「自然語言 → 驗證 → 唯讀執行」之上，補上空間資料的輸出（GeoJSON）、確定性的空間運算（質心、緩衝區），以及能在地圖上看到結果的 Web 前端；同時讓 Microsoft Agent Framework 的工具迴圈真正派上用場（`m2-implementation-plan.md` §2.2） |
 | 預估工時 | 約 7 人日（模組 6、11） |
 | 完成後 | 不打 tag（`feasibility-report.md` §5 的 M3 只產出 Demo 素材；下一個 tag 是 M4 的 `v0.2.0`） |
-| 狀態 | **進行中（2026-10-09）**：S1 完成（前置驗證通過；`GeoJsonBuilder`／`GeoJsonValidator`；離線 180 項、資料庫 39 項全綠；尚未 commit） |
+| 狀態 | **進行中（2026-10-09）**：S1 已 commit；S2 完成（質心、緩衝區、參數化執行、投影往返；離線 194 項、資料庫 48 項全綠；尚未 commit） |
 
 ---
 
@@ -128,7 +128,7 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
 ### 3.2 `ReadOnlySqlExecutor` 的調整
 
 - `SqlQueryResult` 加一個**有預設值的**第四個參數 `ColumnTypes`（依 `GetDataTypeName`），既有 `new(columns, rows, truncated)` 的呼叫與測試不必改。
-- （S2 實作）新增 `ExecuteAsync(string sql, IReadOnlyDictionary<string, object> parameters, …)`，供工具的固定模板使用；仍走 `geo_reader`、仍受逾時與列數上限約束。模型生成的 SQL 仍只走原本無參數的版本。
+- 新增 `ExecuteAsync(string sql, IReadOnlyDictionary<string, object> parameters, …)`，供工具的固定模板使用；仍走 `geo_reader`、仍受逾時與列數上限約束。模型生成的 SQL 仍只走原本無參數的版本。
 
 ### 3.3 `GeoJsonBuilder`
 
@@ -171,6 +171,15 @@ M2 把 geography 當 `byte[]` 帶過去，沒有解析過。空間資料有兩�
 - `Database/CentroidTests`：全部行政區 G2 通過；`EnvelopeCenter` 反面測試通過。
 - `Database/BufferTests`：多個半徑（例如 500、2000、10000 公尺）有效性與面積；非法參數被拒絕且未連線資料庫。
 - `Spatial/ProjectionRoundTripTests`：G3 往返 < 0.5 公尺，並記錄最大值。
+
+**S2 實測結果（2026-10-09）**：
+
+- G2：9 個行政區的質心與 NTS 投影參考值相差皆為 0.20 公尺（外接框對角線約 15 公里，相對 0.0013%），遠小於 0.1%。注意：種子資料的行政區都是近似矩形，這個結果證明轉換法正確，但不代表不規則大區域也能這麼準；§4.1 的限制說明仍然有效。
+- 緩衝區（圓心 25.0478, 121.5170）：半徑 500／2000／10000 公尺的面積都比 πr² 小 0.040%、比 NTS 投影緩衝小 0.030%，皆有效；測試容許值據此定為 0.2%。半徑 10 公里內有 74 座基地台。
+- G3：4326 → 3826 → 4326 往返，台灣範圍格點最大位移 4.3 毫米；200 座基地台最大 4.2 毫米；皆遠小於 0.5 公尺。
+- 反面測試：`SpatialQueries.cs` 不含 `EnvelopeCenter`；L 形範例中外接框中心 (5, 5) 與質心 (3.22, 3.22) 明顯不同。
+- 緩衝區參數（緯度、經度、半徑，含 NaN／無限大）超出範圍時在連線前拒絕，已用不可連線的連線字串驗證。
+- 測試分布：離線 `Spatial/SpatialOfflineTests`（往返、原始碼掃描、參數拒絕）；資料庫 `Database/SpatialQueriesTests`（質心、緩衝區、全部基地台往返）。
 
 ---
 

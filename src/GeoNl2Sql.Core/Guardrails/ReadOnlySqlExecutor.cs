@@ -56,11 +56,26 @@ public sealed class ReadOnlySqlExecutor
     /// <param name="cancellationToken">取消權杖。</param>
     /// <returns>第一個結果集；沒有結果集的語句回傳零欄零列。</returns>
     /// <exception cref="SqlException">權限不足、語法或執行錯誤，逾時時 <see cref="SqlException.Number"/> 為 -2。</exception>
-    public async Task<SqlQueryResult> ExecuteAsync(string sql, CancellationToken cancellationToken = default)
+    public Task<SqlQueryResult> ExecuteAsync(string sql, CancellationToken cancellationToken = default) =>
+        ExecuteAsync(sql, null, cancellationToken);
+
+    /// <summary>
+    /// 帶參數的版本，供工具的固定模板使用（docs/m3-implementation-plan.md §3.2）：值一律以 <see cref="SqlParameter"/> 傳入，不拼進 SQL 文字。
+    /// 其餘行為（唯讀身分、逾時、列數上限、截斷）與無參數版本相同。模型生成的 SQL 仍只走無參數版本。
+    /// </summary>
+    /// <param name="sql">含 <c>@名稱</c> 參數的 SQL。</param>
+    /// <param name="parameters">參數名稱（含 <c>@</c>）對值；為 <c>null</c> 或空表示沒有參數。</param>
+    /// <param name="cancellationToken">取消權杖。</param>
+    /// <returns>第一個結果集。</returns>
+    /// <exception cref="SqlException">權限不足、語法或執行錯誤，逾時時 <see cref="SqlException.Number"/> 為 -2。</exception>
+    public async Task<SqlQueryResult> ExecuteAsync(string sql, IReadOnlyDictionary<string, object>? parameters,
+        CancellationToken cancellationToken = default)
     {
         await using var conn = new SqlConnection(_connectionString);
         await conn.OpenAsync(cancellationToken);
         await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = _limits.TimeoutSeconds };
+        if (parameters is not null)
+            foreach (var (name, value) in parameters) cmd.Parameters.AddWithValue(name, value);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
         var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
