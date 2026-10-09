@@ -45,6 +45,30 @@ public sealed record BufferResult(Polygon Buffer, bool IsValid, double AreaSquar
 /// </summary>
 public sealed class SpatialQueries
 {
+    /// <summary>質心的固定模板；參數 <c>@name</c>。</summary>
+    public const string CentroidSql = """
+        SELECT DistrictName,
+               geography::STGeomFromWKB(
+                   geometry::STGeomFromWKB(Boundary.STAsBinary(), 4326).STCentroid().STAsBinary(), 4326).ToString()
+        FROM dbo.District
+        WHERE DistrictName = @name
+        """;
+
+    /// <summary>緩衝區多邊形的固定模板；參數 <c>@lat</c>、<c>@lon</c>、<c>@meters</c>。</summary>
+    public const string BufferSql = """
+        SELECT b.ToString(), b.STIsValid(), b.STArea()
+        FROM (SELECT geography::Point(@lat, @lon, 4326).STBuffer(@meters) AS b) AS x
+        """;
+
+    /// <summary>緩衝區內基地台的固定模板（<c>COUNT(*) OVER()</c> 在 <c>TOP</c> 之前計算，所以每列帶的都是符合條件的總數）；參數 <c>@top</c>、<c>@lat</c>、<c>@lon</c>、<c>@meters</c>。</summary>
+    public const string StationSql = """
+        SELECT TOP (@top) StationId, StationName, Location.ToString(),
+               Location.STDistance(geography::Point(@lat, @lon, 4326)), COUNT(*) OVER()
+        FROM dbo.BaseStation
+        WHERE Location.STIntersects(geography::Point(@lat, @lon, 4326).STBuffer(@meters)) = 1
+        ORDER BY Location.STDistance(geography::Point(@lat, @lon, 4326)), StationId
+        """;
+
     private readonly ReadOnlySqlExecutor _executor;
     private readonly SpatialOptions _options;
 
@@ -68,14 +92,7 @@ public sealed class SpatialQueries
     /// <returns>質心；找不到該行政區時為 <c>null</c>。</returns>
     public async Task<DistrictCentroidResult?> DistrictCentroidAsync(string districtName, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SELECT DistrictName,
-                   geography::STGeomFromWKB(
-                       geometry::STGeomFromWKB(Boundary.STAsBinary(), 4326).STCentroid().STAsBinary(), 4326).ToString()
-            FROM dbo.District
-            WHERE DistrictName = @name
-            """;
-        var result = await _executor.ExecuteAsync(sql, new Dictionary<string, object> { ["@name"] = districtName }, cancellationToken);
+        var result = await _executor.ExecuteAsync(CentroidSql, new Dictionary<string, object> { ["@name"] = districtName }, cancellationToken);
         if (result.Rows.Count == 0) return null;
         var row = result.Rows[0];
         return new DistrictCentroidResult((string)row[0]!, (Point)GeographyReader.FromWkt((string)row[1]!));
@@ -103,22 +120,10 @@ public sealed class SpatialQueries
 
         var parameters = new Dictionary<string, object> { ["@lat"] = latitude, ["@lon"] = longitude, ["@meters"] = meters };
 
-        const string bufferSql = """
-            SELECT b.ToString(), b.STIsValid(), b.STArea()
-            FROM (SELECT geography::Point(@lat, @lon, 4326).STBuffer(@meters) AS b) AS x
-            """;
-        var buffer = (await _executor.ExecuteAsync(bufferSql, parameters, cancellationToken)).Rows[0];
+        var buffer = (await _executor.ExecuteAsync(BufferSql, parameters, cancellationToken)).Rows[0];
 
-        // COUNT(*) OVER() 在 TOP 之前計算，所以每列帶的都是符合條件的總數。
-        const string stationSql = """
-            SELECT TOP (@top) StationId, StationName, Location.ToString(),
-                   Location.STDistance(geography::Point(@lat, @lon, 4326)), COUNT(*) OVER()
-            FROM dbo.BaseStation
-            WHERE Location.STIntersects(geography::Point(@lat, @lon, 4326).STBuffer(@meters)) = 1
-            ORDER BY Location.STDistance(geography::Point(@lat, @lon, 4326)), StationId
-            """;
         parameters["@top"] = _options.MaxListedStations;
-        var stations = await _executor.ExecuteAsync(stationSql, parameters, cancellationToken);
+        var stations = await _executor.ExecuteAsync(StationSql, parameters, cancellationToken);
         var hits = stations.Rows
             .Select(r => new StationHit((int)r[0]!, (string)r[1]!, (Point)GeographyReader.FromWkt((string)r[2]!), (double)r[3]!))
             .ToList();
