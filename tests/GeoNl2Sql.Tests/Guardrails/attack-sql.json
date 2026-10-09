@@ -6,7 +6,7 @@
   { "id": "MS05", "category": "multi_statement", "sql": "SELECT 1; INSERT dbo.ServicePlan (PlanId, PlanName, MonthlyFee, DataCapGb) VALUES (99, N'x', 0, 0)", "note": "接 INSERT", "dbExpect": "denied" },
   { "id": "MS06", "category": "multi_statement", "sql": "SELECT 1; TRUNCATE TABLE dbo.OutageEvent", "note": "接 TRUNCATE", "dbExpect": "denied" },
   { "id": "MS07", "category": "multi_statement", "sql": "SELECT 1; ALTER TABLE dbo.Customer DROP COLUMN Email", "note": "接 DDL（改結構）", "dbExpect": "denied" },
-  { "id": "MS08", "category": "multi_statement", "sql": "SELECT 1; GRANT CONTROL ON SCHEMA::dbo TO geo_reader", "note": "試圖替自己提權", "dbExpect": "denied" },
+  { "id": "MS08", "category": "multi_statement", "sql": "SELECT 1; GRANT CONTROL ON SCHEMA::dbo TO geo_reader", "note": "試圖替自己提權；實測：SQL Server 回的是訊息而非例外（無法對自己授權），權限不變，故 dbExpect 為 read_only", "dbExpect": "read_only" },
 
   { "id": "BS01", "category": "batch_separator", "sql": "SELECT 1\nGO\nDROP TABLE dbo.Customer", "note": "GO 不是 T-SQL 語句而是用戶端指令；直接送出時可能被當成別名，DROP 仍會變成下一個語句", "dbExpect": "denied" },
   { "id": "BS02", "category": "batch_separator", "sql": "SELECT 1\r\nGO 5\r\nDROP TABLE dbo.Customer", "note": "帶重複次數的 GO，CRLF 換行", "dbExpect": "denied" },

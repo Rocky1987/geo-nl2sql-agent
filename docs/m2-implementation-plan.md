@@ -7,7 +7,7 @@
 | 里程碑定位 | 把 M1 的丟棄式 spike 換成正式的 Core 模組，並建立「AST 白名單 + 唯讀 login」兩層**互相獨立**的確定性防護（`feasibility-report.md` §5） |
 | 預估工時 | 約 9 人日（模組 3、4、5：4 + 3 + 2） |
 | 完成後 | 打 `v0.1.0`（MVP 可公開） |
-| 狀態 | **進行中（2026-10-08）**：S1、S2 完成（已 commit）；S3 完成一半（Q1 已落實：混合驗證已開、`geo_reader` login 與 `db/02_reader.sql` 已驗證、seed 可重建），`ReadOnlySqlExecutor` 與 `ReadOnlyBoundaryTests` 尚未寫；S4–S7 未開始 |
+| 狀態 | **進行中（2026-10-09）**：S1、S2 完成（已 commit）；S3 完成（`ReadOnlySqlExecutor`、`Database/ReadOnlyBoundaryTests`，含 login 與權限，全部測試通過）；S4–S7 未開始 |
 
 ---
 
@@ -229,6 +229,8 @@ DENY EXECUTE TO geo_reader;   -- 資料庫層級：擋本資料庫內的預存�
 
   **已實測的缺口（2026-10-08）**：最後一行的資料庫層級 `DENY EXECUTE` 擋不住 `EXEC sp_who`。`sp_who` 位於 master，授權給 `public`，權限在 master 內判斷，GeoNl2SqlDemo 的 DENY 管不到。`geo_reader` 沒有 `VIEW SERVER STATE`，`sp_who` 只回傳它自己的連線，資訊外洩風險低。因此語料 `BS04`、`DY06` 的 `dbExpect` 已改為 `read_only`（只靠 AST 驗證拒絕），B3 的宣稱已縮限為上表所列範圍。
 
+  **S3 實測的第二個修正（2026-10-09）**：`MS08`（`GRANT CONTROL ON SCHEMA::dbo TO geo_reader`）原標 `denied`，實測 SQL Server 回傳的是「無法對自己授權」的訊息（嚴重性低於錯誤，不是 `SqlException`），語句不生效。因此 `MS08` 改標 `read_only`，並在快照比對中加入 `geo_reader` 的權限清單，直接證明權限沒有變動。
+
   只 `GRANT SELECT` 其實已經足以擋住寫入，額外的 `DENY` 是第二道保險：即使之後有人誤把 `geo_reader` 加進某個角色，`DENY` 仍優先於 `GRANT`。`geo_reader` 不加入任何資料庫角色，也沒有 `IMPERSONATE` 權限，所以 `EXECUTE AS USER = 'dbo'` 會失敗。
 - M1 的 `spike_reader` 不動，`spike` 子命令照舊可重現 M1 數字。
 
@@ -241,7 +243,7 @@ DENY EXECUTE TO geo_reader;   -- 資料庫層級：擋本資料庫內的預存�
 
 ### 5.5 驗證（S3 的完成條件，`Database/ReadOnlyBoundaryTests`）
 
-1. **兩層獨立（B3）**：繞過驗證器，把 60 條攻擊逐條直接交給 `ReadOnlySqlExecutor` 執行，對照 `dbExpect`：`denied` 必須收到 `SqlException`（`BS04`、`DY06` 已改標 `read_only`，不在此列）。全部跑完後，比對執行前後的 6 張表內容雜湊（同 `seed` 的算法）與 `sys.objects` 物件清單，**必須完全相同**。
+1. **兩層獨立（B3）**：繞過驗證器，把 60 條攻擊逐條直接交給 `ReadOnlySqlExecutor` 執行，對照 `dbExpect`：`denied` 必須收到 `SqlException`（`BS04`、`DY06`、`MS08` 已改標 `read_only`，不在此列）。全部跑完後，比對執行前後的 6 張表內容雜湊（同 `seed` 的算法）、`sys.objects` 物件清單與 `geo_reader` 的權限清單，**必須完全相同**。
 2. **逾時（B4）**：`TimeoutSeconds = 1`，執行一個合法但很重的查詢（例如 `Customer` 三次 `CROSS JOIN` 後 `COUNT(*)`，約 10 億列），必須在約 1 秒後收到逾時。
 3. **列數上限（B4）**：`MaxRows = 10`，`SELECT * FROM dbo.Customer` 回傳 10 列且 `Truncated = true`。
 4. **正常查詢可用**：30 題標準 SQL 以 `geo_reader` 執行全部成功，結果與以 `Demo` 連線執行的相同。
@@ -360,7 +362,7 @@ dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？"
 | S6 | `pipeline`、`ask` 子命令 | 雲端 described ≥ 30/30；誤擋 0；本機量到數字 | 金鑰、資料庫 | 1 日 |
 | S7 | 文件、commit、`v0.1.0` | M2 驗收項目全勾 | 作者確認 tag | 1 日 |
 
-S1、S2、S4、S5 都不需要資料庫與金鑰。進度：S1、S2 完成；S3 的 login 與權限完成（Q1 已決定並落實），執行器與邊界測試未寫；S4–S7 未開始。建議的 commit 切點：S1 一個（凍結）、S2 一個、S3 一個、S4+S5 一個、S6+S7 一個。
+S1、S2、S4、S5 都不需要資料庫與金鑰。進度：S1、S2、S3 完成；S4–S7 未開始。建議的 commit 切點：S1 一個（凍結）、S2 一個、S3 一個、S4+S5 一個、S6+S7 一個。
 
 ### 10.2 需要作者決定的事
 
