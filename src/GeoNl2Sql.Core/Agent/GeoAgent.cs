@@ -52,7 +52,7 @@ public sealed record Completed(GeoAgentResult Result) : GeoAgentEvent;
 public sealed class GeoAgent
 {
     /// <summary>提示詞版本（<see cref="Instructions"/> 與 <see cref="GeoTools"/> 的工具描述）；任一者改動就要遞增並記錄。</summary>
-    public const string PromptVersion = "v1";
+    public const string PromptVersion = "v2";
 
     /// <summary>超過輪數上限時回給使用者的固定訊息。</summary>
     public const string LimitMessage = "無法在限制內完成這個問題，請換個方式或把問題拆小一點再試。";
@@ -69,6 +69,7 @@ public sealed class GeoAgent
         3. 座標一律是「緯度在前、經度在後」；半徑單位是公尺（1 公里＝1000 公尺）。
         4. 工具回報失敗或找不到資料時，如實告訴使用者，不要編造結果。
         5. 用使用者的語言簡短回答；資料列與地圖會由系統另外顯示，不必重複列出全部資料。
+        6. 回答只用一般文字：不要使用表格、條列符號、粗體或任何 markdown 語法（例如 |、-、*、#）；有多筆資料時用一兩句話概括重點，例如最多與最少的是哪幾個。
         """;
 
     private readonly IChatClient _client;

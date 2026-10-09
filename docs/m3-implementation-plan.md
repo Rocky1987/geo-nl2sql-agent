@@ -7,7 +7,7 @@
 | 里程碑定位 | 在 M2 的「自然語言 → 驗證 → 唯讀執行」之上，補上空間資料的輸出（GeoJSON）、確定性的空間運算（質心、緩衝區），以及能在地圖上看到結果的 Web 前端；同時讓 Microsoft Agent Framework 的工具迴圈真正派上用場（`m2-implementation-plan.md` §2.2） |
 | 預估工時 | 約 7 人日（模組 6、11） |
 | 完成後 | 不打 tag（`feasibility-report.md` §5 的 M3 只產出 Demo 素材；下一個 tag 是 M4 的 `v0.2.0`） |
-| 狀態 | **進行中（2026-10-09）**：S1～S4 已完成並 push；S5（Web 前端）程式已完成，尚未 commit，待作者在瀏覽器確認並截圖 |
+| 狀態 | **完成（2026-10-09）**：S1～S6 已完成；G1～G7 全數通過（G4 為有條件：自然計畫未使用空間索引，見 `feasibility-report.md` §9.4） |
 
 ---
 
@@ -332,6 +332,12 @@ M3 的 Web 端點**沒有使用者驗證、角色、PII 遮蔽與稽核**，這�
 - `README.md`：**只加使用說明與技術亮點**（質心的 geometry 轉換法與 `EnvelopeCenter` 陷阱、GeoJSON 旁路設計、Web 的啟動方式與截圖），**不寫里程碑進度**。
 - `docs/` 內不放含作者機器細節的內容（絕對路徑、登入帳號）。
 - 不打 tag。
+
+**提示詞 v2（2026-10-09，S6 之後）**：Web 的回答常含 markdown 表格，頁面只顯示純文字。`GeoAgent.Instructions` 加第 6 條「回答只用一般文字，不要使用表格、條列符號、粗體或任何 markdown 語法」，`PromptVersion` 由 v1 升為 v2（`PromptBuilder` 與 NL2SQL 提示詞沒動，G5 不受影響）。第一版只寫「不要用表格」，實測模型改用條列加粗體，所以改成現在的寫法；實測 1 題（每個行政區各有幾座基地台）回答為純文字。§6 的 12 題工具選擇量測是 v1 的結果，v2 沒有重跑。
+
+**S6 實作紀錄（2026-10-09）**：
+- `feasibility-report.md` 新增 §9（GeoJSON、質心、緩衝區與往返、空間索引、工具選擇、Web 與已知限制），M3 的四項驗收已勾選；`project-technical-guide.md` 與 README 已更新。
+- **G5 回歸**：`PromptBuilder` 未改動；全部測試 279 項通過（離線 219、資料庫 60）；`pipeline --fake "{gold}"` 30/30、驗證器誤擋 0。未重跑雲端 30 題（提示詞未動，基線不變）。
 
 ---
 
