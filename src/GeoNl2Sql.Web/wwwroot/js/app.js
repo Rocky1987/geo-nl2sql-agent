@@ -7,6 +7,12 @@
     const submit = $('submit');
     let map = null;
     let layer = null;
+    let featureLayers = []; // 與 geoJson.features 同順序的 Leaflet 圖層，供表格的「定位」按鈕使用。
+    let selected = null;    // 目前被標示的圖層。
+
+    // 伺服器把空間欄位換成這段固定文字（QueryController.SpatialPlaceholder）；表格靠它找出哪些儲存格是地圖要素。
+    const spatialPlaceholder = '<空間資料，已顯示在地圖上>';
+    const highlightStyle = { color: '#dc2626', fillColor: '#facc15', fillOpacity: 1, weight: 3, radius: 11 };
 
     // 要素類型 → 地圖樣式（kind 由 GeoTools 寫入 properties；一般查詢結果的要素沒有 kind）。
     const styles = {
@@ -57,16 +63,37 @@
         }).addTo(map);
     }
 
+    const styleFor = (feature) => styles[feature.properties?.kind] || styles.default;
+
+    // 定位到第 index 個要素：標示、移動地圖並打開彈出視窗。
+    function locate(index) {
+        const target = featureLayers[index];
+        if (!target) return;
+        if (selected) selected.setStyle(styleFor(selected.feature));
+        selected = target;
+        target.setStyle(highlightStyle);
+        target.bringToFront();
+        $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (target.getBounds) map.fitBounds(target.getBounds(), { padding: [40, 40], maxZoom: 15 });
+        else map.flyTo(target.getLatLng(), Math.max(map.getZoom(), 15));
+        target.openPopup();
+    }
+
     function drawMap(geoJson) {
         if (layer) { layer.remove(); layer = null; }
+        featureLayers = [];
+        selected = null;
         const empty = $('map-empty');
         empty.textContent = '這個問題的答案沒有位置資料，所以地圖沒有標記。試試「中心點」、「附近範圍」或「地圖」範例。';
         empty.classList.toggle('hidden', !!geoJson);
         if (!geoJson) return;
         layer = L.geoJSON(geoJson, {
-            style: (feature) => styles[feature.properties?.kind] || styles.default,
-            pointToLayer: (feature, latlng) => L.circleMarker(latlng, styles[feature.properties?.kind] || styles.default),
-            onEachFeature: (feature, l) => l.bindPopup(() => popupFor(feature.properties)),
+            style: styleFor,
+            pointToLayer: (feature, latlng) => L.circleMarker(latlng, styleFor(feature)),
+            onEachFeature: (feature, l) => {
+                featureLayers.push(l);
+                l.bindPopup(() => popupFor(feature.properties));
+            },
         }).addTo(map);
         const bounds = layer.getBounds();
         if (bounds.isValid()) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
@@ -83,17 +110,37 @@
             head.append(th);
         }
         $('thead').replaceChildren(head);
+        let featureIndex = 0;
         $('tbody').replaceChildren(...rows.map((row) => {
             const tr = document.createElement('tr');
             for (const value of row) {
                 const td = document.createElement('td');
-                td.textContent = value === null ? 'NULL' : String(value);
+                if (value === spatialPlaceholder) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'locate-btn';
+                    button.textContent = '📍 定位';
+                    button.dataset.feature = String(featureIndex++);
+                    td.append(button);
+                } else {
+                    td.textContent = value === null ? 'NULL' : String(value);
+                }
                 tr.append(td);
             }
             return tr;
         }));
+        // 表格的空間儲存格數量要與地圖要素數量一致才能對應；不一致（例如同一次回答還用了其他工具畫圖）就不提供定位。
+        if (featureIndex !== featureLayers.length) {
+            for (const button of $('tbody').querySelectorAll('.locate-btn')) button.parentElement.textContent = '（地圖上）';
+        }
         $('row-count').textContent = `${rows.length} 列${truncated ? '（結果過多，已截斷）' : ''}`;
     }
+
+    // 表格的「定位」按鈕（事件委派，表格每次重畫都不必重新綁定）。
+    $('tbody').addEventListener('click', (event) => {
+        const button = event.target.closest('.locate-btn');
+        if (button) locate(Number(button.dataset.feature));
+    });
 
     function setAnswer(text, muted) {
         const answer = $('answer');
@@ -126,11 +173,11 @@
             badge.textContent = '失敗';
             tools.append(badge);
         }
+        drawMap(data.geoJson); // 先畫地圖：表格的「定位」按鈕要對照地圖要素的數量。
         drawTable(data.columns || [], data.rows || [], data.truncated);
         const hasDetails = (data.columns || []).length > 0;
         $('results').classList.toggle('hidden', !hasDetails);
         $('results').classList.toggle('flex', hasDetails);
-        drawMap(data.geoJson);
     }
 
     // 工具名稱 → 執行中的進度文字。
