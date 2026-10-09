@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using GeoNl2Sql.Core;
+using GeoNl2Sql.Eval.Common;
 using GeoNl2Sql.Core.Nl2Sql;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.AI;
@@ -25,7 +26,7 @@ public static class SpikeCommand
     /// <param name="Question">題目文字（使用者訊息）。</param>
     /// <param name="GoldSql">標準 SQL。</param>
     /// <param name="Ordered">true 表示列順序是題意的一部分，比對時須逐列同序。</param>
-    private sealed record Gold(string Id, string Category, string Question, string GoldSql, bool Ordered);
+    internal sealed record Gold(string Id, string Category, string Question, string GoldSql, bool Ordered);
 
     /// <summary>單次生成的結果。</summary>
     /// <param name="Response">模型原始回應文字。</param>
@@ -156,7 +157,7 @@ public static class SpikeCommand
         try
         {
             var actual = await QueryAsync(demo, sql, asReader: true);
-            return Result(sql, SameResult(gold, actual, ordered) ? null : "wrong_result", null);
+            return Result(sql, ResultComparer.SameResult(gold, actual, ordered) ? null : "wrong_result", null);
         }
         catch (SqlException ex)
         {
@@ -172,7 +173,7 @@ public static class SpikeCommand
     /// <param name="sql">要執行的 SQL。</param>
     /// <param name="asReader">true 表示以 spike_reader 身分執行（模型生成的 SQL）；標準 SQL 傳 false。</param>
     /// <returns>每列一個陣列；數值統一轉成 double，空間型別轉成十六進位字串。</returns>
-    private static async Task<List<object?[]>> QueryAsync(string demo, string sql, bool asReader)
+    internal static async Task<List<object?[]>> QueryAsync(string demo, string sql, bool asReader)
     {
         await using var conn = new SqlConnection(new SqlConnectionStringBuilder(demo) { Pooling = !asReader }.ConnectionString);
         await conn.OpenAsync();
@@ -201,33 +202,5 @@ public static class SpikeCommand
             rows.Add(row);
         }
         return rows;
-    }
-
-    /// <summary>
-    /// execution accuracy 比對：欄位數相同，且列的多重集合相同（ordered 時順序也須相同）。
-    /// 欄位名稱不比；數值容差 1e-6（大於 1 的數值按比例放大）；NULL 等於 NULL。
-    /// </summary>
-    /// <param name="gold">標準結果。</param>
-    /// <param name="actual">生成 SQL 的結果。</param>
-    /// <param name="ordered">是否比對列順序。</param>
-    /// <returns>兩個結果集相同時為 true。</returns>
-    private static bool SameResult(List<object?[]> gold, List<object?[]> actual, bool ordered)
-    {
-        if (gold.Count != actual.Count) return false;
-        if (gold.Count > 0 && gold[0].Length != actual[0].Length) return false;
-        if (gold.Count == 0) return true;
-        if (!ordered)
-        {
-            // 以四捨五入到 6 位的文字當排序鍵，讓容差內的數值排在相同位置。
-            static string Key(object?[] row) => string.Join('\u001f', row.Select(v => v is double d ? d.ToString("F6", CultureInfo.InvariantCulture) : Convert.ToString(v, CultureInfo.InvariantCulture)));
-            gold = gold.OrderBy(Key, StringComparer.Ordinal).ToList();
-            actual = actual.OrderBy(Key, StringComparer.Ordinal).ToList();
-        }
-        return gold.Zip(actual).All(pair => pair.First.Zip(pair.Second).All(c => c switch
-        {
-            (null, null) => true,
-            (double a, double b) => Math.Abs(a - b) <= 1e-6 * Math.Max(1, Math.Max(Math.Abs(a), Math.Abs(b))),
-            var (a, b) => Equals(a, b),
-        }));
     }
 }
