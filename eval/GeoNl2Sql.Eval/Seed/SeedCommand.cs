@@ -20,6 +20,9 @@ public static class SeedCommand
     /// <summary>M2 唯讀帳號的 login／user 名稱（需與 db/02_reader.sql 一致）。</summary>
     private const string ReaderLoginName = "geo_reader";
 
+    /// <summary>M4 admin 旁路專用的唯讀帳號（需與 db/04_reader_pii.sql 一致）。</summary>
+    private const string ReaderPiiLoginName = "geo_reader_pii";
+
     /// <summary>
     /// 執行 seed。
     /// </summary>
@@ -36,13 +39,19 @@ public static class SeedCommand
 
         var master = new SqlConnectionStringBuilder(demo) { InitialCatalog = "master" }.ConnectionString;
         await RecreateDatabaseAsync(master);
-        var readerCreated = await EnsureReaderLoginAsync(master, config.GetConnectionString("Reader"));
+        var readerCreated = await EnsureReaderLoginAsync(master, ReaderLoginName, config.GetConnectionString("Reader"));
+        var readerPiiCreated = await EnsureReaderLoginAsync(master, ReaderPiiLoginName, config.GetConnectionString("ReaderPii"));
 
         var data = SeedData.Generate();
         await using var conn = new SqlConnection(demo);
         await conn.OpenAsync();
         await RunScriptAsync(conn, "01_schema.sql");
-        if (readerCreated) await RunScriptAsync(conn, "02_reader.sql");
+        if (readerCreated)
+        {
+            await RunScriptAsync(conn, "02_reader.sql");
+            await RunScriptAsync(conn, "03_masking.sql");
+        }
+        if (readerPiiCreated) await RunScriptAsync(conn, "04_reader_pii.sql");
         await InsertAsync(conn, data);
         await PrintSummaryAsync(conn);
     }
@@ -68,39 +77,40 @@ public static class SeedCommand
     }
 
     /// <summary>
-    /// 依 <c>ConnectionStrings:Reader</c> 建立 SQL login（不存在就建立，存在就更新密碼），讓連線密碼只維護一份。
-    /// login 是伺服器層級物件，重建資料庫不會刪除它；資料庫內的 user 與權限由 02_reader.sql 建立。
-    /// 未設定 Reader 連線字串時略過（M1 的 spike 流程不需要）。
+    /// 依連線字串建立 SQL login（不存在就建立，存在就更新密碼），讓連線密碼只維護一份。
+    /// login 是伺服器層級物件，重建資料庫不會刪除它；資料庫內的 user 與權限由 db/ 下的腳本建立。
+    /// 未設定該連線字串時略過（M1 的 spike 流程不需要）。
     /// </summary>
     /// <param name="masterConnectionString">指向 master 的連線字串。</param>
-    /// <param name="readerConnectionString">唯讀帳號的連線字串（含 User ID 與 Password）；可為 null。</param>
-    /// <returns>true 表示已確保 login 存在，呼叫端應接著執行 02_reader.sql；false 表示略過。</returns>
-    /// <exception cref="InvalidOperationException">缺少 User ID／Password，或 login 名稱含有 [A-Za-z0-9_] 以外的字元。</exception>
-    private static async Task<bool> EnsureReaderLoginAsync(string masterConnectionString, string? readerConnectionString)
+    /// <param name="loginName">login 名稱（程式內的常數，不是外部輸入）。</param>
+    /// <param name="connectionString">該帳號的連線字串（含 User ID 與 Password）；可為 null。</param>
+    /// <returns>true 表示已確保 login 存在，呼叫端應接著執行對應的權限腳本；false 表示略過。</returns>
+    /// <exception cref="InvalidOperationException">缺少 User ID／Password，或 User ID 與 <paramref name="loginName"/> 不符。</exception>
+    private static async Task<bool> EnsureReaderLoginAsync(string masterConnectionString, string loginName, string? connectionString)
     {
-        if (string.IsNullOrWhiteSpace(readerConnectionString))
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
-            Console.WriteLine("未設定 ConnectionStrings:Reader，略過 geo_reader 的建立。");
+            Console.WriteLine($"未設定 {loginName} 的連線字串，略過建立。");
             return false;
         }
-        var builder = new SqlConnectionStringBuilder(readerConnectionString);
-        if (builder.UserID != ReaderLoginName || string.IsNullOrEmpty(builder.Password))
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        if (builder.UserID != loginName || string.IsNullOrEmpty(builder.Password))
             throw new InvalidOperationException(
-                $"ConnectionStrings:Reader 必須以 SQL 驗證指定 User ID={ReaderLoginName} 與 Password。");
+                $"{loginName} 的連線字串必須以 SQL 驗證指定 User ID={loginName} 與 Password。");
 
         // DDL 不能參數化：名稱是常數，密碼只需轉義單引號。
         var password = builder.Password.Replace("'", "''");
         var sql = $"""
-            IF SUSER_ID(N'{ReaderLoginName}') IS NULL
-                CREATE LOGIN [{ReaderLoginName}] WITH PASSWORD = N'{password}', CHECK_POLICY = ON, DEFAULT_DATABASE = [{DatabaseName}];
+            IF SUSER_ID(N'{loginName}') IS NULL
+                CREATE LOGIN [{loginName}] WITH PASSWORD = N'{password}', CHECK_POLICY = ON, DEFAULT_DATABASE = [{DatabaseName}];
             ELSE
-                ALTER LOGIN [{ReaderLoginName}] WITH PASSWORD = N'{password}';
+                ALTER LOGIN [{loginName}] WITH PASSWORD = N'{password}';
             """;
         await using var conn = new SqlConnection(masterConnectionString);
         await conn.OpenAsync();
         await using var cmd = new SqlCommand(sql, conn);
         await cmd.ExecuteNonQueryAsync();
-        Console.WriteLine($"已建立或更新 login {ReaderLoginName}。");
+        Console.WriteLine($"已建立或更新 login {loginName}。");
         return true;
     }
 

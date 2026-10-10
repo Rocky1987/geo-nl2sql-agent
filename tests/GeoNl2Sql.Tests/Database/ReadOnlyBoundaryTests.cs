@@ -25,12 +25,15 @@ public class ReadOnlyBoundaryTests
     /// B3：60 條攻擊逐條直接送給唯讀執行器。<c>denied</c> 必須收到 SQL Server 的拒絕（不是逾時）；
     /// 其餘類別（<c>read_only</c>、<c>tempdb_only</c>）可成功或失敗，但全部跑完後 6 張表、<c>sys.objects</c> 與 <c>geo_reader</c> 的權限必須完全相同。
     /// </summary>
-    [Fact]
-    public async Task Attacks_BypassingValidator_AreDeniedAndLeaveDatabaseUnchanged()
+    [Theory]
+    [InlineData("reader")]
+    [InlineData("reader_pii")]
+    public async Task Attacks_BypassingValidator_AreDeniedAndLeaveDatabaseUnchanged(string login)
     {
         var before = await DbConfig.SnapshotAsync();
-        // WAITFOR 類語句會等到逾時，縮短逾時以免整體太慢。
-        var executor = new ReadOnlySqlExecutor(DbConfig.Reader, new QueryLimits { TimeoutSeconds = 3, MaxRows = 1000 });
+        // WAITFOR 類語句會等到逾時，縮短逾時以免整體太慢。M4：geo_reader_pii 也必須同樣唯讀。
+        var connectionString = login == "reader" ? DbConfig.Reader : DbConfig.ReaderPii;
+        var executor = new ReadOnlySqlExecutor(connectionString, new QueryLimits { TimeoutSeconds = 3, MaxRows = 1000 });
         var problems = new List<string>();
 
         foreach (var attack in Load("attack-sql.json"))
@@ -62,7 +65,7 @@ public class ReadOnlyBoundaryTests
         var sw = Stopwatch.StartNew();
 
         var ex = await Assert.ThrowsAsync<SqlException>(() => executor.ExecuteAsync(
-            "SELECT COUNT(*) FROM dbo.Customer a CROSS JOIN dbo.Customer b CROSS JOIN dbo.Customer c CROSS JOIN dbo.Customer d"));
+            "SELECT COUNT(*) FROM Customer a CROSS JOIN Customer b CROSS JOIN Customer c CROSS JOIN Customer d"));
 
         Assert.Equal(-2, ex.Number);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(8), $"逾時花了 {sw.Elapsed.TotalSeconds:F1} 秒");
@@ -73,9 +76,9 @@ public class ReadOnlyBoundaryTests
     public async Task RowCap_TruncatesOnlyWhenMoreRowsExist()
     {
         var capped = await new ReadOnlySqlExecutor(DbConfig.Reader, new QueryLimits { MaxRows = 10 })
-            .ExecuteAsync("SELECT * FROM dbo.Customer");
+            .ExecuteAsync("SELECT * FROM Customer");
         var exact = await new ReadOnlySqlExecutor(DbConfig.Reader, new QueryLimits { MaxRows = 5 })
-            .ExecuteAsync("SELECT TOP 5 * FROM dbo.Customer");
+            .ExecuteAsync("SELECT TOP 5 * FROM Customer");
 
         Assert.Equal(10, capped.Rows.Count);
         Assert.True(capped.Truncated);
@@ -100,19 +103,31 @@ public class ReadOnlyBoundaryTests
             e.GetProperty("id").GetString()!, e.GetProperty("goldSql").GetString()!, e.GetProperty("ordered").GetBoolean(),
         });
 
-    /// <summary>B7：標準 SQL 以 <c>geo_reader</c> 執行成功，結果與管理身分執行的相同。</summary>
+    /// <summary>
+    /// B7（M4 改）：標準 SQL 以 <c>geo_reader_pii</c> 執行成功，結果與管理身分執行的相同（證明權限沒有收過頭）。
+    /// 以 <c>geo_reader</c> 執行時，唯一例外是 J04：它選了 <c>dbo.Customer.FullName</c>，個資欄位本來就該被拒（錯誤 230）；
+    /// 其餘題目與管理身分的結果仍相同。
+    /// </summary>
     /// <param name="id">題號。</param>
     /// <param name="sql">標準 SQL。</param>
     /// <param name="ordered">列順序是否為題意的一部分。</param>
     [Theory]
     [MemberData(nameof(Gold))]
-    public async Task GoldSql_AsReader_MatchesAdminResult(string id, string sql, bool ordered)
+    public async Task GoldSql_AsReaders_MatchAdminResult(string id, string sql, bool ordered)
     {
         var limits = new QueryLimits();
-        var asReader = await new ReadOnlySqlExecutor(DbConfig.Reader, limits).ExecuteAsync(sql);
         var asAdmin = await new ReadOnlySqlExecutor(DbConfig.Demo, limits).ExecuteAsync(sql);
+        var asPii = await new ReadOnlySqlExecutor(DbConfig.ReaderPii, limits).ExecuteAsync(sql);
+        Assert.True(Normalize(asPii, ordered).SequenceEqual(Normalize(asAdmin, ordered)), $"{id} geo_reader_pii 的結果與管理身分不同");
 
-        Assert.True(Normalize(asReader, ordered).SequenceEqual(Normalize(asAdmin, ordered)), $"{id} 兩種身分的結果不同");
+        if (id == "J04")
+        {
+            var ex = await Assert.ThrowsAsync<SqlException>(() => new ReadOnlySqlExecutor(DbConfig.Reader, limits).ExecuteAsync(sql));
+            Assert.Equal(230, ex.Number);
+            return;
+        }
+        var asReader = await new ReadOnlySqlExecutor(DbConfig.Reader, limits).ExecuteAsync(sql);
+        Assert.True(Normalize(asReader, ordered).SequenceEqual(Normalize(asAdmin, ordered)), $"{id} geo_reader 的結果與管理身分不同");
         Assert.NotEmpty(asReader.Columns);
     }
 

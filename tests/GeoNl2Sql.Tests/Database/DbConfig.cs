@@ -25,6 +25,12 @@ internal static class DbConfig
         ?? throw new InvalidOperationException(
             "找不到 ConnectionStrings:Reader。請先設定 user-secrets 並執行 seed（見 docs/m2-implementation-plan.md §5.3）。");
 
+    /// <summary>admin 旁路專用 login <c>geo_reader_pii</c> 的連線字串（可讀個資欄位的原始值）。</summary>
+    /// <exception cref="InvalidOperationException">未設定時，附上設定方式。</exception>
+    public static string ReaderPii => Config.GetConnectionString("ReaderPii")
+        ?? throw new InvalidOperationException(
+            "找不到 ConnectionStrings:ReaderPii。請先設定 user-secrets 並重新執行 seed（見 docs/m4-implementation-plan.md §3.1）。");
+
     /// <summary>管理身分（Windows 驗證）的連線字串，只用來取資料快照與比對標準答案；預設指向本機 SQLEXPRESS 的 GeoNl2SqlDemo。</summary>
     public static string Demo => Config.GetConnectionString("Demo")
         ?? @"Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;Integrated Security=true;TrustServerCertificate=true";
@@ -53,7 +59,9 @@ internal static class DbConfig
         foreach (var (table, query) in Tables.Concat(new[] { ("sys.objects",
                      "SELECT name, type, create_date, modify_date FROM sys.objects WHERE is_ms_shipped = 0 ORDER BY object_id"),
                      ("geo_reader 權限",
-                      "SELECT state_desc, permission_name, class_desc, major_id FROM sys.database_permissions WHERE grantee_principal_id = USER_ID('geo_reader') ORDER BY class_desc, permission_name, major_id") }))
+                      "SELECT state_desc, permission_name, class_desc, major_id FROM sys.database_permissions WHERE grantee_principal_id = USER_ID('geo_reader') ORDER BY class_desc, permission_name, major_id"),
+                     ("geo_reader_pii 權限",
+                      "SELECT state_desc, permission_name, class_desc, major_id FROM sys.database_permissions WHERE grantee_principal_id = USER_ID('geo_reader_pii') ORDER BY class_desc, permission_name, major_id") }))
         {
             using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             await using var cmd = new SqlCommand(query, conn);

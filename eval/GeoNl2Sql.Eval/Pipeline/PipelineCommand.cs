@@ -59,10 +59,10 @@ public static class PipelineCommand
     }
 
     /// <summary>
-    /// 執行 pipeline 量測。用法：<c>pipeline [--limit N] [--runs N] [--provider P] [--model M] [--fake 文字]</c>。
+    /// 執行 pipeline 量測。用法：<c>pipeline [--limit N] [--runs N] [--provider P] [--model M] [--fake 文字] [--reader pii]</c>。
     /// </summary>
-    /// <param name="config">已載入的設定；讀取 <c>Model</c> 區段與 <c>ConnectionStrings:Demo</c>、<c>ConnectionStrings:Reader</c>。</param>
-    /// <param name="args">子命令之後的參數；意義同 <c>spike</c>。<c>--fake</c> 的 <c>{gold}</c> 會換成該題標準 SQL，用來不花費用驗證流程與驗證器誤擋。</param>
+    /// <param name="config">已載入的設定；讀取 <c>Model</c> 區段與 <c>ConnectionStrings:Demo</c>、<c>ConnectionStrings:Reader</c>（<c>--reader pii</c> 時改讀 <c>ReaderPii</c>）。</param>
+    /// <param name="args">子命令之後的參數；意義同 <c>spike</c>。<c>--fake</c> 的 <c>{gold}</c> 會換成該題標準 SQL，用來不花費用驗證流程與驗證器誤擋。<c>--reader pii</c> 改以 geo_reader_pii 執行（M4 起 geo_reader 讀不到個資欄位，J04 這類題目只有 pii 能執行；只用於 --fake 驗證，模型路徑不使用它）。</param>
     /// <exception cref="InvalidOperationException">缺少連線字串或金鑰。</exception>
     public static async Task RunAsync(IConfiguration config, string[] args)
     {
@@ -70,7 +70,8 @@ public static class PipelineCommand
         var fake = Opt("--fake");
         var runs = int.Parse(Opt("--runs") ?? "1");
         var demo = config.GetConnectionString("Demo") ?? throw new InvalidOperationException("找不到設定 ConnectionStrings:Demo。");
-        var reader = config.GetConnectionString("Reader") ?? throw new InvalidOperationException("找不到設定 ConnectionStrings:Reader。");
+        var readerKey = Opt("--reader") == "pii" ? "ReaderPii" : "Reader";
+        var reader = config.GetConnectionString(readerKey) ?? throw new InvalidOperationException($"找不到設定 ConnectionStrings:{readerKey}。");
         var options = ReadModelOptions(config, Opt);
         var executor = new ReadOnlySqlExecutor(reader, config.GetSection(QueryLimits.SectionName).Get<QueryLimits>() ?? new QueryLimits());
         var validator = new SqlValidator(DemoSchema.Tables);

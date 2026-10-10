@@ -9,7 +9,9 @@
  * 即使日後誤把 geo_reader 加進某個角色也不會多出權限）。geo_reader 不加入任何資料庫角色。
  */
 
-CREATE USER geo_reader FOR LOGIN geo_reader;
+-- 預設結構描述為 ai：模型寫的 FROM Customer（不加前綴）會解析到 ai.Customer（03_masking.sql 的遮蔽檢視），
+-- 其他表在 ai 找不到，照常解析到 dbo。ai 不必先存在，CREATE USER 可先指定。
+CREATE USER geo_reader FOR LOGIN geo_reader WITH DEFAULT_SCHEMA = ai;
 GO
 
 GRANT SELECT ON SCHEMA::dbo TO geo_reader;
