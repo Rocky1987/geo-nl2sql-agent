@@ -27,7 +27,9 @@ public sealed class AgentOptions
 /// <param name="ToolCalls">模型呼叫過的工具，依序排列。</param>
 /// <param name="Query">最近一次 <c>query_database</c> 的完整結果（含 SQL）；沒呼叫過為 <c>null</c>。</param>
 /// <param name="HitLimit">true 表示因超過 <see cref="AgentOptions.MaxToolRounds"/> 而停止。</param>
-public sealed record GeoAgentResult(string Answer, FeatureCollection? Map, IReadOnlyList<ToolCall> ToolCalls, Nl2SqlResult? Query, bool HitLimit);
+/// <param name="QueryFeatures">最近一次 <c>query_database</c> 加進 <paramref name="Map"/> 的要素（同一批物件）；沒有為 <c>null</c>。admin 旁路用它找出要換掉的要素。</param>
+public sealed record GeoAgentResult(string Answer, FeatureCollection? Map, IReadOnlyList<ToolCall> ToolCalls, Nl2SqlResult? Query, bool HitLimit,
+    IReadOnlyList<IFeature>? QueryFeatures = null);
 
 /// <summary><see cref="GeoAgent.RunStreamingAsync"/> 送出的事件基底型別。</summary>
 public abstract record GeoAgentEvent;
@@ -106,7 +108,8 @@ public sealed class GeoAgent
 
         // 超過上限時迴圈停止，最後一則訊息仍是「要求呼叫工具」而不是答案。
         var hitLimit = response.Messages.LastOrDefault()?.Contents.OfType<FunctionCallContent>().Any() == true;
-        return new GeoAgentResult(hitLimit ? LimitMessage : response.Text, tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, hitLimit);
+        return new GeoAgentResult(hitLimit ? LimitMessage : response.Text, tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, hitLimit,
+            tools.LastQueryFeatures);
     }
 
     /// <summary>
@@ -148,7 +151,7 @@ public sealed class GeoAgent
 
         // 與 RunAsync 相同：停在「要求呼叫工具」而沒有後續結果，代表超過輪數上限。
         yield return new Completed(new GeoAgentResult(lastWasToolCall ? LimitMessage : text.ToString(),
-            tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, lastWasToolCall));
+            tools.Map.ToFeatureCollection(), tools.Calls, tools.LastQuery, lastWasToolCall, tools.LastQueryFeatures));
     }
 
     /// <summary>建立本次請求專用的 Agent 與工具集（含獨立的地圖資料與工具輪數上限）。</summary>

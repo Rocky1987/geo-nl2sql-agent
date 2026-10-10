@@ -28,8 +28,17 @@ builder.Services.AddSingleton<GeoAgent>(sp =>
     var pipeline = new Nl2SqlPipeline(client, new SqlValidator(DemoSchema.Tables), executor.ExecuteAsync, schema);
     return new GeoAgent(client, pipeline, new SpatialQueries(executor, spatialOptions), agentOptions);
 });
-builder.Services.AddSingleton<AgentRunner>(sp => sp.GetRequiredService<GeoAgent>().RunAsync);
-builder.Services.AddSingleton<AgentStreamRunner>(sp => sp.GetRequiredService<GeoAgent>().RunStreamingAsync);
+// admin 旁路：只用來重跑已通過驗證的 SQL 給表格，結果不回給模型（docs/m4-implementation-plan.md §4.2）。
+builder.Services.AddSingleton<QueryService>(sp =>
+{
+    var readerPii = builder.Configuration.GetConnectionString("ReaderPii")
+        ?? throw new InvalidOperationException("找不到設定 ConnectionStrings:ReaderPii；請先設定 user-secrets 並重新執行 seed（見 docs/m4-implementation-plan.md §3.1）。");
+    var piiExecutor = new ReadOnlySqlExecutor(readerPii, limits);
+    return new QueryService(sp.GetRequiredService<GeoAgent>(), (sql, ct) => piiExecutor.ExecuteAsync(sql, ct),
+        sp.GetRequiredService<ILogger<QueryService>>());
+});
+builder.Services.AddSingleton<AgentRunner>(sp => sp.GetRequiredService<QueryService>().RunAsync);
+builder.Services.AddSingleton<AgentStreamRunner>(sp => sp.GetRequiredService<QueryService>().RunStreamingAsync);
 
 var app = builder.Build();
 

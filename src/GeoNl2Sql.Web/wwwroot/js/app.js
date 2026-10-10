@@ -35,7 +35,8 @@
         stationid: '基地台編號', stationname: '基地台名稱', band: '頻段', status: '狀態',
         installeddate: '建置日期', stationcount: '基地台數量', longitude: '經度', latitude: '緯度',
         planid: '方案編號', planname: '方案名稱', monthlyfee: '月租費', datacapgb: '每月流量上限（GB）',
-        customerid: '客戶編號', subscriptionid: '訂閱編號', startdate: '開始日期',
+        customerid: '客戶編號', fullname: '姓名', nationalid: '身分證字號', phone: '電話', email: '電子郵件',
+        subscriptionid: '訂閱編號', startdate: '開始日期',
         outageid: '中斷事件編號', startedat: '開始時間', durationminutes: '持續時間（分鐘）', cause: '原因',
         kind: '類型',
     };
@@ -261,7 +262,7 @@
             const response = await fetch('/query/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question }),
+                body: JSON.stringify({ question, role: $('role').value }),
             });
             // 問題不合法時是一般的 400 JSON（success=false 與固定的錯誤訊息）。
             if (!response.ok) {

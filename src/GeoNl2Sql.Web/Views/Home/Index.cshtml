@@ -18,6 +18,12 @@
                 <label for="question" class="card-title">你的問題</label>
                 <textarea id="question" class="input min-h-24 resize-y" maxlength="500" rows="3"
                           placeholder="例如：哪個行政區的基地台最多？"></textarea>
+                <label for="role" class="card-title">角色（示範用）</label>
+                <select id="role" class="input">
+                    <option value="analyst" selected>analyst：個資欄位顯示遮蔽值</option>
+                    <option value="admin">admin：結果表顯示原始個資</option>
+                </select>
+                <p class="text-xs leading-relaxed text-muted-foreground">這只是示範用的切換，沒有登入，任何人都能選 admin。admin 的原始值只出現在下方結果表，不會送給 AI 模型，所以回答文字裡的個資仍是遮蔽值。</p>
                 <button id="submit" type="submit" class="btn w-full">送出問題</button>
             </form>
             <div class="mt-5 border-t border-border pt-4">

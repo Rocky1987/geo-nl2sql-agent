@@ -52,6 +52,9 @@ public sealed class GeoTools
     /// <summary>最近一次 <c>query_database</c> 的完整結果（含生成的 SQL 與各次嘗試）；沒呼叫過為 <c>null</c>。</summary>
     public Nl2SqlResult? LastQuery { get; private set; }
 
+    /// <summary>最近一次 <c>query_database</c> 加進 <see cref="Map"/> 的要素；該次沒有空間資料或失敗為 <c>null</c>。</summary>
+    public IReadOnlyList<IFeature>? LastQueryFeatures { get; private set; }
+
     /// <summary>模型呼叫過的工具，依呼叫順序。</summary>
     public IReadOnlyList<ToolCall> Calls
     {
@@ -81,10 +84,15 @@ public sealed class GeoTools
         Record("query_database", ("question", question));
         var result = await _pipeline.AskAsync(question, cancellationToken);
         LastQuery = result;
+        LastQueryFeatures = null;
         if (!result.Success) return $"查詢失敗：{result.FailureReason}";
 
         var data = result.Data!;
-        if (GeoJsonBuilder.Build(data) is { } features) Map.Add(features);
+        if (GeoJsonBuilder.Build(data) is { } features)
+        {
+            Map.Add(features);
+            LastQueryFeatures = [.. features];
+        }
         return Summarize(data);
     }
 

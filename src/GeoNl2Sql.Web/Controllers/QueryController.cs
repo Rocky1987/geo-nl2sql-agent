@@ -27,12 +27,34 @@ public sealed class QueryController(AgentRunner runner, ILogger<QueryController>
     /// <summary>空間欄位在結果表中顯示的固定文字（座標資料走 <c>geoJson</c>）。</summary>
     public const string SpatialPlaceholder = "<空間資料，已顯示在地圖上>";
 
+    /// <summary>角色不合法時回給前端的固定訊息。</summary>
+    public const string InvalidRoleMessage = "角色只能是 analyst 或 admin。";
+
+    /// <summary>
+    /// 解析請求的角色：省略為 <see cref="UserRole.Analyst"/>；只接受 <c>analyst</c>／<c>admin</c>（不分大小寫），
+    /// 其他值（含數字）一律不合法，不依賴列舉的字串轉換。
+    /// </summary>
+    /// <param name="text">請求本文的 <c>role</c>。</param>
+    /// <param name="role">解析結果。</param>
+    /// <returns>合法為 true。</returns>
+    public static bool TryParseRole(string? text, out UserRole role)
+    {
+        role = UserRole.Analyst;
+        if (text is null) return true;
+        switch (text.Trim().ToLowerInvariant())
+        {
+            case "analyst": return true;
+            case "admin": role = UserRole.Admin; return true;
+            default: return false;
+        }
+    }
+
     /// <summary>
     /// 回答一個問題。
     /// </summary>
-    /// <param name="request">含 <c>question</c> 的請求內容。</param>
+    /// <param name="request">含 <c>question</c>、選用 <c>role</c> 的請求內容。</param>
     /// <param name="cancellationToken">取消權杖（瀏覽器中斷連線時觸發）。</param>
-    /// <returns>200 與 <see cref="QueryResponse"/>；問題為空或過長回 400；模型服務出錯回 502（內容同樣是 <see cref="QueryResponse"/>）。</returns>
+    /// <returns>200 與 <see cref="QueryResponse"/>；問題為空、過長或角色不合法回 400；模型服務出錯回 502（內容同樣是 <see cref="QueryResponse"/>）。</returns>
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] QueryRequest request, CancellationToken cancellationToken)
     {
@@ -42,10 +64,13 @@ public sealed class QueryController(AgentRunner runner, ILogger<QueryController>
         if (question.Length > MaxQuestionLength)
             return BadRequest(Failure($"問題長度不可超過 {MaxQuestionLength} 字元。"));
 
+        if (!TryParseRole(request.Role, out var role))
+            return BadRequest(Failure(InvalidRoleMessage));
+
         GeoAgentResult result;
         try
         {
-            result = await runner(question, cancellationToken);
+            result = await runner(question, role, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

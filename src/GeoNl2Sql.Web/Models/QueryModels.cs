@@ -8,19 +8,22 @@ namespace GeoNl2Sql.Web.Models;
 /// 測試時換成假的實作，就不需要模型與資料庫。
 /// </summary>
 /// <param name="question">使用者的問題。</param>
+/// <param name="role">請求選擇的角色（自選，不是驗證過的身分）。</param>
 /// <param name="cancellationToken">取消權杖（請求中斷時觸發）。</param>
-public delegate Task<GeoAgentResult> AgentRunner(string question, CancellationToken cancellationToken);
+public delegate Task<GeoAgentResult> AgentRunner(string question, UserRole role, CancellationToken cancellationToken);
 
 /// <summary>
 /// 串流版的 <see cref="AgentRunner"/>：依發生順序回傳工具呼叫、回答文字片段與最後的完整結果。
 /// </summary>
 /// <param name="question">使用者的問題。</param>
+/// <param name="role">請求選擇的角色（自選，不是驗證過的身分）。</param>
 /// <param name="cancellationToken">取消權杖（請求中斷時觸發）。</param>
-public delegate IAsyncEnumerable<GeoAgentEvent> AgentStreamRunner(string question, CancellationToken cancellationToken);
+public delegate IAsyncEnumerable<GeoAgentEvent> AgentStreamRunner(string question, UserRole role, CancellationToken cancellationToken);
 
 /// <summary><c>POST /query</c> 的請求內容。</summary>
 /// <param name="Question">自然語言問題；不可為空，長度上限見 <see cref="Controllers.QueryController.MaxQuestionLength"/>。</param>
-public sealed record QueryRequest(string? Question);
+/// <param name="Role">角色，<c>analyst</c> 或 <c>admin</c>（不分大小寫）；省略為 analyst，其他值回 400。只讀請求本文，不讀查詢字串或標頭。</param>
+public sealed record QueryRequest(string? Question, string? Role = null);
 
 /// <summary>
 /// <c>POST /query</c> 的回應。欄位名稱是契約（評估程式也會用），不隨意更動（docs/m3-implementation-plan.md §7.1）。

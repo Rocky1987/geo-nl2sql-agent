@@ -47,7 +47,7 @@ public class QueryStreamControllerTests
     {
         var body = new MemoryStream();
         var done = new GeoAgentResult("好的", null, [], null, false);
-        var controller = Controller((_, _) => Events(new ToolStarted("query_database"), new AnswerDelta("好"), new AnswerDelta("的"), new Completed(done)), body);
+        var controller = Controller((_, _, _) => Events(new ToolStarted("query_database"), new AnswerDelta("好"), new AnswerDelta("的"), new Completed(done)), body);
 
         await controller.Post(new QueryRequest("問題"), default);
 
@@ -63,7 +63,7 @@ public class QueryStreamControllerTests
     public async Task InvalidQuestion_Returns400_WithoutCallingAgent()
     {
         var calls = 0;
-        var controller = Controller((_, _) => { calls++; return Events(); }, new MemoryStream());
+        var controller = Controller((_, _, _) => { calls++; return Events(); }, new MemoryStream());
 
         Assert.IsType<BadRequestObjectResult>(await controller.Post(new QueryRequest("   "), default));
         Assert.IsType<BadRequestObjectResult>(await controller.Post(new QueryRequest(new string('問', QueryController.MaxQuestionLength + 1)), default));
@@ -75,7 +75,7 @@ public class QueryStreamControllerTests
     public async Task Exception_WritesFixedErrorEvent_WithoutLeakingDetails()
     {
         var body = new MemoryStream();
-        var controller = Controller((_, _) => Throwing(), body);
+        var controller = Controller((_, _, _) => Throwing(), body);
 
         await controller.Post(new QueryRequest("q"), default);
 

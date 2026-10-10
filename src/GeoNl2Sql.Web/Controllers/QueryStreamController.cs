@@ -21,9 +21,9 @@ public sealed class QueryStreamController(AgentStreamRunner runner, ILogger<Quer
     /// <summary>
     /// 回答一個問題並以串流輸出事件。
     /// </summary>
-    /// <param name="request">含 <c>question</c> 的請求內容。</param>
+    /// <param name="request">含 <c>question</c>、選用 <c>role</c> 的請求內容。</param>
     /// <param name="cancellationToken">取消權杖（瀏覽器中斷連線時觸發）。</param>
-    /// <returns>問題不合法時回 400；否則直接寫入回應本體並回傳 null 結果（<see cref="EmptyResult"/>）。</returns>
+    /// <returns>問題或角色不合法時回 400；否則直接寫入回應本體並回傳 null 結果（<see cref="EmptyResult"/>）。</returns>
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] QueryRequest request, CancellationToken cancellationToken)
     {
@@ -33,11 +33,14 @@ public sealed class QueryStreamController(AgentStreamRunner runner, ILogger<Quer
         if (question.Length > QueryController.MaxQuestionLength)
             return BadRequest(Failure($"問題長度不可超過 {QueryController.MaxQuestionLength} 字元。"));
 
+        if (!QueryController.TryParseRole(request.Role, out var role))
+            return BadRequest(Failure(QueryController.InvalidRoleMessage));
+
         Response.ContentType = "application/x-ndjson; charset=utf-8";
         Response.Headers.CacheControl = "no-cache";
         try
         {
-            await foreach (var e in runner(question, cancellationToken))
+            await foreach (var e in runner(question, role, cancellationToken))
             {
                 object line = e switch
                 {
