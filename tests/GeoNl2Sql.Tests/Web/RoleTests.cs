@@ -17,7 +17,7 @@ public class RoleTests
 
     /// <summary>建立 <c>POST /query</c> 控制器，並把收到的角色記進 <paramref name="seen"/>。</summary>
     private static QueryController Query(List<UserRole> seen, HttpContext? http = null) =>
-        new((_, role, _) => { seen.Add(role); return Task.FromResult(Done()); }, NullLogger<QueryController>.Instance)
+        new((_, role, _) => { seen.Add(role); return Task.FromResult(Done()); }, (_, _) => Task.CompletedTask, NullLogger<QueryController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = http ?? new DefaultHttpContext() },
         };
@@ -27,7 +27,7 @@ public class RoleTests
     {
         http ??= new DefaultHttpContext();
         http.Response.Body = new MemoryStream();
-        return new QueryStreamController((_, role, _) => Events(seen, role), NullLogger<QueryStreamController>.Instance)
+        return new QueryStreamController((_, role, _) => Events(seen, role), (_, _) => Task.CompletedTask, NullLogger<QueryStreamController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = http },
         };

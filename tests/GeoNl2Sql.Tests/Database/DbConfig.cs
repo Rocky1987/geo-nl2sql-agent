@@ -31,6 +31,12 @@ internal static class DbConfig
         ?? throw new InvalidOperationException(
             "找不到 ConnectionStrings:ReaderPii。請先設定 user-secrets 並重新執行 seed（見 docs/m4-implementation-plan.md §3.1）。");
 
+    /// <summary>稽核寫入專用 login <c>geo_auditor</c> 的連線字串（只有 <c>audit.QueryLog</c> 的 INSERT）。</summary>
+    /// <exception cref="InvalidOperationException">未設定時，附上設定方式。</exception>
+    public static string Auditor => Config.GetConnectionString("Auditor")
+        ?? throw new InvalidOperationException(
+            "找不到 ConnectionStrings:Auditor。請先設定 user-secrets 並重新執行 seed（見 docs/m4-implementation-plan.md §3.1）。");
+
     /// <summary>管理身分（Windows 驗證）的連線字串，只用來取資料快照與比對標準答案；預設指向本機 SQLEXPRESS 的 GeoNl2SqlDemo。</summary>
     public static string Demo => Config.GetConnectionString("Demo")
         ?? @"Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;Integrated Security=true;TrustServerCertificate=true";

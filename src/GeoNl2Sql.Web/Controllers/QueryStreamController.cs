@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GeoNl2Sql.Core.Agent;
+using GeoNl2Sql.Core.Audit;
 using GeoNl2Sql.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +15,7 @@ namespace GeoNl2Sql.Web.Controllers;
 /// </summary>
 [ApiController]
 [Route("query/stream")]
-public sealed class QueryStreamController(AgentStreamRunner runner, ILogger<QueryStreamController> logger) : ControllerBase
+public sealed class QueryStreamController(AgentStreamRunner runner, InvalidRequestRecorder recordInvalid, ILogger<QueryStreamController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -29,12 +30,12 @@ public sealed class QueryStreamController(AgentStreamRunner runner, ILogger<Quer
     {
         var question = request.Question?.Trim();
         if (string.IsNullOrEmpty(question))
-            return BadRequest(Failure("請輸入問題。"));
+            return await InvalidAsync(request, "請輸入問題。");
         if (question.Length > QueryController.MaxQuestionLength)
-            return BadRequest(Failure($"問題長度不可超過 {QueryController.MaxQuestionLength} 字元。"));
+            return await InvalidAsync(request, $"問題長度不可超過 {QueryController.MaxQuestionLength} 字元。");
 
         if (!QueryController.TryParseRole(request.Role, out var role))
-            return BadRequest(Failure(QueryController.InvalidRoleMessage));
+            return await InvalidAsync(request, QueryController.InvalidRoleMessage);
 
         Response.ContentType = "application/x-ndjson; charset=utf-8";
         Response.Headers.CacheControl = "no-cache";
@@ -56,6 +57,11 @@ public sealed class QueryStreamController(AgentStreamRunner runner, ILogger<Quer
         {
             // 瀏覽器已中斷連線，沒有人在讀回應。
         }
+        catch (AuditWriteException)
+        {
+            // 稽核在送出 result 之前寫入：寫不進去就只送 error，前端會清掉已顯示的回答文字，也不畫表格與地圖。
+            await WriteLineAsync(new { type = "error", message = QueryController.AuditFailedMessage }, CancellationToken.None);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Agent 串流執行失敗");
@@ -63,6 +69,22 @@ public sealed class QueryStreamController(AgentStreamRunner runner, ILogger<Quer
         }
 
         return new EmptyResult();
+    }
+
+    /// <summary>記錄不合法的請求後回 400；稽核寫不進去則回 500。</summary>
+    /// <param name="request">請求內容。</param>
+    /// <param name="message">回給前端的固定原因。</param>
+    private async Task<IActionResult> InvalidAsync(QueryRequest request, string message)
+    {
+        try
+        {
+            await recordInvalid(request.Question, request.Role);
+        }
+        catch (AuditWriteException)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, Failure(QueryController.AuditFailedMessage));
+        }
+        return BadRequest(Failure(message));
     }
 
     /// <summary>寫出一行 JSON 並立即送出，前端才能即時收到。</summary>

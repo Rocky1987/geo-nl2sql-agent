@@ -233,6 +233,13 @@ FROM dbo.Customer;
 - `Database/AuditDatabaseTests`：`geo_auditor` 只能 `INSERT`；兩個 reader 讀不到稽核表；擁有者 `UPDATE`／`DELETE` 也失敗（append-only）。
 - `Audit/UsageTrackingTests`：20 個並行請求的 token 合計各自正確。
 
+**S3 實測結果（2026-10-10）**：以上全過（離線 251、資料庫 94）。
+
+- **ledger**：SQL Server 2022 Express 可建 `APPEND_ONLY` ledger 表（含 `IDENTITY`、`nvarchar(max)`）；擁有者的 `UPDATE`／`DELETE`／`TRUNCATE` 皆被拒，採用原設計，不需退回一般資料表。
+- **token 用量**：Anthropic 的串流回應有回報用量。實測一題（每個行政區各有幾座基地台）共 3 次模型呼叫（Agent 2 次、NL2SQL 1 次），輸入 7181、輸出 288 token。供應商若不回報，欄位維持 NULL（已有測試）。
+- **帳號**：`geo_auditor` 連自己寫的紀錄都讀不到；兩個 reader 對 `audit` 結構描述 `DENY`。連線字串 `ConnectionStrings:Auditor` 放 user-secrets，`seed` 建立。
+- **取捨**：使用者中途斷線（取消）的請求不記稽核，因為沒有回應可言；`model_error` 涵蓋模型服務與其他伺服器端例外；`GuardRule`、`DetectorVersion`、`ScrubbedCells` 欄位已建，S4 才會填值（目前為 NULL／0）。測試寫入的紀錄無法刪除，留到下次 `seed` 重建資料庫時清掉。
+
 ---
 
 ## 6. S4：護欄

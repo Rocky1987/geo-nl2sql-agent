@@ -23,6 +23,9 @@ public static class SeedCommand
     /// <summary>M4 admin 旁路專用的唯讀帳號（需與 db/04_reader_pii.sql 一致）。</summary>
     private const string ReaderPiiLoginName = "geo_reader_pii";
 
+    /// <summary>M4 稽核寫入專用的帳號（需與 db/05_audit.sql 一致）。</summary>
+    private const string AuditorLoginName = "geo_auditor";
+
     /// <summary>
     /// 執行 seed。
     /// </summary>
@@ -41,6 +44,7 @@ public static class SeedCommand
         await RecreateDatabaseAsync(master);
         var readerCreated = await EnsureReaderLoginAsync(master, ReaderLoginName, config.GetConnectionString("Reader"));
         var readerPiiCreated = await EnsureReaderLoginAsync(master, ReaderPiiLoginName, config.GetConnectionString("ReaderPii"));
+        var auditorCreated = await EnsureReaderLoginAsync(master, AuditorLoginName, config.GetConnectionString("Auditor"));
 
         var data = SeedData.Generate();
         await using var conn = new SqlConnection(demo);
@@ -52,6 +56,8 @@ public static class SeedCommand
             await RunScriptAsync(conn, "03_masking.sql");
         }
         if (readerPiiCreated) await RunScriptAsync(conn, "04_reader_pii.sql");
+        // 05 要在兩個 reader 之後執行：它會對已存在的 reader 帳號 DENY 稽核結構描述。
+        if (auditorCreated) await RunScriptAsync(conn, "05_audit.sql");
         await InsertAsync(conn, data);
         await PrintSummaryAsync(conn);
     }

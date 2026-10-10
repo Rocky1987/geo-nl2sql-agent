@@ -13,6 +13,14 @@ namespace GeoNl2Sql.Web.Models;
 public delegate Task<GeoAgentResult> AgentRunner(string question, UserRole role, CancellationToken cancellationToken);
 
 /// <summary>
+/// 記錄一個不合法請求（空問題、過長、角色不合法）的稽核委派。正式環境由 <see cref="QueryService.RecordInvalidAsync"/> 實作；
+/// 寫入失敗時丟 <see cref="GeoNl2Sql.Core.Audit.AuditWriteException"/>。
+/// </summary>
+/// <param name="question">請求的問題原文；可為 null。</param>
+/// <param name="role">請求的角色原文；可為 null。</param>
+public delegate Task InvalidRequestRecorder(string? question, string? role);
+
+/// <summary>
 /// 串流版的 <see cref="AgentRunner"/>：依發生順序回傳工具呼叫、回答文字片段與最後的完整結果。
 /// </summary>
 /// <param name="question">使用者的問題。</param>

@@ -28,6 +28,7 @@
     <None Include="..\..\db\02_reader.sql" Link="db\02_reader.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\db\03_masking.sql" Link="db\03_masking.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\db\04_reader_pii.sql" Link="db\04_reader_pii.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\db\05_audit.sql" Link="db\05_audit.sql" CopyToOutputDirectory="PreserveNewest" />
     <!-- spike 子命令讀取的 schema 文字與題集 -->
     <None Include="..\..\db\schema-description.md" Link="db\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Questions\questions.json" CopyToOutputDirectory="PreserveNewest" />

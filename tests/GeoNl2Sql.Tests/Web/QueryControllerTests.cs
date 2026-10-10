@@ -29,7 +29,7 @@ public class QueryControllerTests
     {
         var count = 0;
         calls = () => count;
-        var controller = new QueryController((q, _, _) => { count++; return Task.FromResult(run(q)); }, NullLogger<QueryController>.Instance);
+        var controller = new QueryController((q, _, _) => { count++; return Task.FromResult(run(q)); }, (_, _) => Task.CompletedTask, NullLogger<QueryController>.Instance);
         return controller;
     }
 
@@ -117,7 +117,7 @@ public class QueryControllerTests
     [Fact]
     public async Task AgentException_Returns502_WithoutLeakingDetails()
     {
-        var controller = new QueryController((_, _, _) => throw new InvalidOperationException("Server=secret;Password=hunter2"),
+        var controller = new QueryController((_, _, _) => throw new InvalidOperationException("Server=secret;Password=hunter2"), (_, _) => Task.CompletedTask,
             NullLogger<QueryController>.Instance);
 
         var result = Assert.IsType<ObjectResult>(await controller.Post(new QueryRequest("q"), default));

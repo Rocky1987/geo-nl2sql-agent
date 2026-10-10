@@ -18,7 +18,7 @@ public class QueryStreamControllerTests
     {
         var context = new DefaultHttpContext();
         context.Response.Body = body;
-        return new QueryStreamController(run, NullLogger<QueryStreamController>.Instance)
+        return new QueryStreamController(run, (_, _) => Task.CompletedTask, NullLogger<QueryStreamController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = context },
         };
