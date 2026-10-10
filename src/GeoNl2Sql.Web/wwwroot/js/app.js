@@ -214,6 +214,7 @@
                 if (timer) { clearInterval(timer); timer = null; }
                 if (onDrained) { onDrained(); onDrained = null; }
             },
+            hasText: () => shown.length + pending.length > 0,
             // 等已收到的文字都顯示完。
             drain() {
                 return pending.length === 0 ? Promise.resolve() : new Promise((resolve) => { onDrained = resolve; });
@@ -224,7 +225,12 @@
     // 處理串流中的一個事件（POST /query/stream 每行一個 JSON）。回傳 true 表示已收到最後結果或錯誤。
     async function handleEvent(event, typer) {
         if (event.type === 'step') {
-            typer.reset(); // 呼叫工具前的旁白不算回答，後端的最後結果也不含它。
+            // 呼叫工具前的旁白不算回答，後端的最後結果也不含它；但要先讓它完整顯示並停留片刻，再切到下一階段。
+            if (typer.hasText()) {
+                await typer.drain();
+                await new Promise((resolve) => setTimeout(resolve, 800));
+            }
+            typer.reset();
             setAnswer(stepLabels[event.tool] || '處理中…', true);
             const badge = document.createElement('span');
             badge.className = 'badge';
