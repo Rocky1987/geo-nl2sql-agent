@@ -37,6 +37,7 @@ public sealed class QueryService
     private readonly IAuditWriter _audit;
     private readonly ModelOptions _model;
     private readonly ILogger? _logger;
+    private readonly OutputLeakGuard _guard;
 
     /// <summary>
     /// 建立服務。
@@ -54,24 +55,32 @@ public sealed class QueryService
         _audit = audit;
         _model = model;
         _logger = logger;
+        _guard = new OutputLeakGuard(agent.ProtectedTexts);
     }
 
     /// <summary>
-    /// 回答一個問題。
+    /// 回答一個問題：先過輸入偵測（命中就不呼叫模型），再交給 Agent，最後檢查輸出是否洩漏提示詞。
     /// </summary>
     /// <param name="question">使用者的問題。</param>
     /// <param name="role">請求選擇的角色。</param>
     /// <param name="cancellationToken">取消權杖。</param>
-    /// <returns>與 <see cref="GeoAgent.RunAsync"/> 相同；admin 的表格與地圖要素換成原始值。</returns>
+    /// <returns>與 <see cref="GeoAgent.RunAsync"/> 相同；admin 的表格與地圖要素換成原始值。被護欄攔下時，結果的 <see cref="GeoAgentResult.BlockMessage"/> 有值且沒有任何資料。</returns>
     /// <exception cref="AuditWriteException">稽核寫入失敗；結果不應送出。</exception>
     public async Task<GeoAgentResult> RunAsync(string question, UserRole role, CancellationToken cancellationToken = default)
     {
         var scope = UsageScope.Begin();
         var started = new Started();
+        if (PromptInjectionDetector.Detect(question) is { } rule)
+        {
+            await WriteAuditAsync(Base(question, role, AuditOutcome.BlockedInput, scope, started) with { GuardRule = rule });
+            return Blocked(PromptInjectionDetector.RejectMessage);
+        }
+
+        var canary = OutputLeakGuard.NewCanary();
         GeoAgentResult result;
         try
         {
-            result = await _agent.RunAsync(question, cancellationToken);
+            result = await _agent.RunAsync(question, cancellationToken, canary);
             if (role == UserRole.Admin) result = await RevealAsync(result, _piiExecute, _logger, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -84,12 +93,19 @@ public sealed class QueryService
             throw;
         }
 
+        if (LeakReason(result, canary) is { } leak)
+        {
+            await WriteAuditAsync(Build(question, role, result, scope, started, AuditOutcome.BlockedOutput, leak));
+            return Blocked(OutputLeakGuard.BlockedMessage);
+        }
         await WriteAuditAsync(Build(question, role, result, scope, started));
         return result;
     }
 
     /// <summary>
-    /// 串流版：事件原樣轉出，只有最後的 <see cref="Completed"/> 依角色換成處理後的結果，並在送出它之前寫入稽核。
+    /// 串流版：回答文字經過輸出防護的逐段過濾（保留尾端不送，洩漏一旦成形就一個字也不送），
+    /// 只有最後的 <see cref="Completed"/> 依角色換成處理後的結果，並在送出它之前寫入稽核。
+    /// 輸入被擋下或輸出被攔下時，最後一個事件是 <see cref="GeoAgentResult.BlockMessage"/> 有值的 <see cref="Completed"/>，之後不再送任何事件。
     /// 這個方法本身不是迭代器：用量範圍要在呼叫端的同步段落建立，之後每次繼續列舉才看得到。
     /// </summary>
     /// <param name="question">使用者的問題。</param>
@@ -99,21 +115,50 @@ public sealed class QueryService
     public IAsyncEnumerable<GeoAgentEvent> RunStreamingAsync(string question, UserRole role, CancellationToken cancellationToken = default) =>
         Stream(question, role, UsageScope.Begin(), cancellationToken);
 
-    /// <summary>串流的實際工作；try/catch 不能包住 yield，所以手動列舉並只把 MoveNext 放在 try 裡。</summary>
+    /// <summary>串流的實際工作；try/catch 不能包住 yield，所以手動列舉，把事件先收進清單，離開 try 之後才送出。</summary>
     private async IAsyncEnumerable<GeoAgentEvent> Stream(
         string question, UserRole role, UsageScope scope, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var started = new Started();
-        await using var events = _agent.RunStreamingAsync(question, cancellationToken).GetAsyncEnumerator(cancellationToken);
+        if (PromptInjectionDetector.Detect(question) is { } rule)
+        {
+            await WriteAuditAsync(Base(question, role, AuditOutcome.BlockedInput, scope, started) with { GuardRule = rule });
+            yield return new Completed(Blocked(PromptInjectionDetector.RejectMessage));
+            yield break;
+        }
+
+        var canary = OutputLeakGuard.NewCanary();
+        var filter = _guard.CreateStream(canary);
+        await using var events = _agent.RunStreamingAsync(question, cancellationToken, canary).GetAsyncEnumerator(cancellationToken);
         while (true)
         {
-            GeoAgentEvent current;
+            var outgoing = new List<GeoAgentEvent>();
+            GeoAgentResult? final = null;
+            string? leak = null;
             try
             {
                 if (!await events.MoveNextAsync()) break;
-                current = events.Current;
-                if (current is Completed completed && role == UserRole.Admin)
-                    current = new Completed(await RevealAsync(completed.Result, _piiExecute, _logger, cancellationToken));
+                switch (events.Current)
+                {
+                    case AnswerDelta delta:
+                        Take(filter.Push(delta.Text), outgoing, ref leak);
+                        break;
+                    case ToolStarted tool:
+                        // 工具呼叫前的旁白到此結束：把保留的尾端檢查完並放行，下一段回答從頭開始。
+                        Take(filter.Complete(), outgoing, ref leak);
+                        outgoing.Add(tool);
+                        break;
+                    case Completed completed:
+                        Take(filter.Complete(), outgoing, ref leak);
+                        final = role == UserRole.Admin
+                            ? await RevealAsync(completed.Result, _piiExecute, _logger, cancellationToken)
+                            : completed.Result;
+                        leak ??= LeakReason(final, canary);
+                        break;
+                    default:
+                        outgoing.Add(events.Current);
+                        break;
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -125,10 +170,49 @@ public sealed class QueryService
                 throw;
             }
 
-            if (current is Completed done) await WriteAuditAsync(Build(question, role, done.Result, scope, started));
-            yield return current;
+            if (leak is not null)
+            {
+                var record = final is null
+                    ? Base(question, role, AuditOutcome.BlockedOutput, scope, started) with { GuardRule = leak }
+                    : Build(question, role, final, scope, started, AuditOutcome.BlockedOutput, leak);
+                await WriteAuditAsync(record);
+                yield return new Completed(Blocked(OutputLeakGuard.BlockedMessage));
+                yield break;
+            }
+
+            foreach (var e in outgoing) yield return e;
+            if (final is not null)
+            {
+                await WriteAuditAsync(Build(question, role, final, scope, started));
+                yield return new Completed(final);
+            }
         }
     }
+
+    /// <summary>把串流過濾器放行的文字加進待送出的事件；被攔下就記下原因（此時沒有任何文字可送）。</summary>
+    private static void Take(OutputLeakGuard.StreamStep step, List<GeoAgentEvent> outgoing, ref string? leak)
+    {
+        if (step.BlockReason is not null) leak ??= step.BlockReason;
+        else if (step.Release.Length > 0) outgoing.Add(new AnswerDelta(step.Release));
+    }
+
+    /// <summary>使用者看得到的輸出（回答、SQL、表格的字串儲存格）有沒有洩漏提示詞；沒有為 null。</summary>
+    private string? LeakReason(GeoAgentResult result, string canary)
+    {
+        IEnumerable<string?> Texts()
+        {
+            yield return result.Answer;
+            yield return result.Query?.Sql;
+            if (result.Query?.Data is { } data)
+                foreach (var row in data.Rows)
+                    foreach (var value in row)
+                        if (value is string text) yield return text;
+        }
+        return _guard.CheckAll(Texts(), canary);
+    }
+
+    /// <summary>被護欄攔下的結果：回答就是固定訊息，沒有任何資料。</summary>
+    private static GeoAgentResult Blocked(string message) => new(message, null, [], null, false, BlockMessage: message);
 
     /// <summary>
     /// 記錄一個沒有進到 Agent 的不合法請求（空問題、過長、角色不合法），Outcome 為 <see cref="AuditOutcome.Invalid"/>。
@@ -155,10 +239,21 @@ public sealed class QueryService
         public Stopwatch Clock { get; } = Stopwatch.StartNew();
     }
 
-    /// <summary>由結果組出稽核紀錄；Outcome 依 <see cref="GeoAgentResult"/> 判斷（與回應的 error 欄位一致）。</summary>
-    private AuditRecord Build(string question, UserRole role, GeoAgentResult result, UsageScope scope, Started started)
+    /// <summary>
+    /// 由結果組出稽核紀錄；未指定 <paramref name="outcome"/> 時依 <see cref="GeoAgentResult"/> 判斷（與回應的 error 欄位一致）。
+    /// 被輸出防護攔下時不記回答摘錄（那正是不能外流的內容），其餘欄位照記供事後查證。
+    /// </summary>
+    /// <param name="question">使用者的問題。</param>
+    /// <param name="role">請求選擇的角色。</param>
+    /// <param name="result">Agent 的結果。</param>
+    /// <param name="scope">本次請求的模型用量。</param>
+    /// <param name="started">請求起點。</param>
+    /// <param name="outcome">指定 Outcome；省略則由結果判斷。</param>
+    /// <param name="guardRule">護欄命中的規則或原因。</param>
+    private AuditRecord Build(string question, UserRole role, GeoAgentResult result, UsageScope scope, Started started,
+        string? outcome = null, string? guardRule = null)
     {
-        var outcome = result.HitLimit ? AuditOutcome.Limit
+        outcome ??= result.HitLimit ? AuditOutcome.Limit
             : result.Query is { Success: false } ? AuditOutcome.Failed
             : AuditOutcome.Success;
         var toolCalls = result.ToolCalls.Count == 0 ? null
@@ -170,7 +265,9 @@ public sealed class QueryService
             Attempts = result.Query?.Attempts.Count,
             RowCount = result.Query?.Data?.Rows.Count,
             Truncated = result.Query?.Data?.Truncated,
-            AnswerExcerpt = AuditRecord.Clip(result.Answer, AuditRecord.MaxTextLength),
+            ScrubbedCells = result.ScrubbedCells,
+            GuardRule = guardRule,
+            AnswerExcerpt = outcome == AuditOutcome.BlockedOutput ? null : AuditRecord.Clip(result.Answer, AuditRecord.MaxTextLength),
         };
     }
 
@@ -189,6 +286,7 @@ public sealed class QueryService
         ModelId = _model.ModelId,
         AgentPromptVersion = GeoAgent.PromptVersion,
         Nl2SqlPromptVersion = PromptBuilder.Described,
+        DetectorVersion = PromptInjectionDetector.Version,
     };
 
     /// <summary>請求本身已因例外失敗：盡力記一筆 <see cref="AuditOutcome.ModelError"/>；稽核也失敗時只記日誌，讓原本的例外繼續往外傳。</summary>

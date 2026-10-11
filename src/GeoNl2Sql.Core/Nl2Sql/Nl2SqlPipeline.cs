@@ -61,6 +61,9 @@ public sealed class Nl2SqlPipeline
         _systemPrompt = PromptBuilder.BuildSystemPrompt(schemaMarkdown, schemaVersion);
     }
 
+    /// <summary>送給模型的 system 訊息全文。輸出防護拿它當「不得洩漏的文字」（docs/m4-implementation-plan.md §6.2）。</summary>
+    public string SystemPrompt => _systemPrompt;
+
     /// <summary>回答一個問題。</summary>
     /// <param name="question">使用者的自然語言問題。</param>
     /// <param name="cancellationToken">取消權杖。</param>

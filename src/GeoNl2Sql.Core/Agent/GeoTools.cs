@@ -32,6 +32,7 @@ public sealed class GeoTools
     private readonly SpatialQueries _spatial;
     private readonly object _gate = new();
     private readonly List<ToolCall> _calls = [];
+    private int _scrubbed;
 
     /// <summary>
     /// 建立本次請求的工具集。
@@ -54,6 +55,12 @@ public sealed class GeoTools
 
     /// <summary>最近一次 <c>query_database</c> 加進 <see cref="Map"/> 的要素；該次沒有空間資料或失敗為 <c>null</c>。</summary>
     public IReadOnlyList<IFeature>? LastQueryFeatures { get; private set; }
+
+    /// <summary>
+    /// 因疑似指令而在給模型的文字中被換掉的字串儲存格數（間接注入的防護，docs/m4-implementation-plan.md §6.3）。
+    /// 表格與地圖旁路仍是原值，只有交給模型的摘要被清理。
+    /// </summary>
+    public int ScrubbedCells => Volatile.Read(ref _scrubbed);
 
     /// <summary>模型呼叫過的工具，依呼叫順序。</summary>
     public IReadOnlyList<ToolCall> Calls
@@ -114,7 +121,7 @@ public sealed class GeoTools
 
             Map.Add([new Feature(GeoJsonBuilder.Round(centroid.Centroid),
                 new AttributesTable { { "kind", "centroid" }, { "DistrictName", centroid.DistrictName } })]);
-            return $"行政區「{centroid.DistrictName}」的質心：緯度 {Format(centroid.Centroid.Y)}，經度 {Format(centroid.Centroid.X)}（平面質心）。";
+            return $"行政區「{Scrub(centroid.DistrictName)}」的質心：緯度 {Format(centroid.Centroid.Y)}，經度 {Format(centroid.Centroid.X)}（平面質心）。";
         }
         catch (SqlException ex)
         {
@@ -153,7 +160,7 @@ public sealed class GeoTools
             var text = new StringBuilder($"圓心（緯度 {Format(latitude)}，經度 {Format(longitude)}）半徑 {radiusMeters:0.##} 公尺的範圍內共有 {result.StationCount} 座基地台。");
             if (result.Stations.Count > 0)
                 text.Append($"最近的 {result.Stations.Count} 座：")
-                    .Append(string.Join("、", result.Stations.Select(s => $"{s.StationName}（{s.DistanceMeters:0} 公尺）")))
+                    .Append(string.Join("、", result.Stations.Select(s => $"{Scrub(s.StationName)}（{s.DistanceMeters:0} 公尺）")))
                     .Append('。');
             return text.ToString();
         }
@@ -183,7 +190,7 @@ public sealed class GeoTools
     /// 把查詢結果整理成給模型的文字：欄位、列數與前 <see cref="PreviewRows"/> 列。空間欄位只標示型別，不給座標。
     /// </summary>
     /// <param name="data">查詢結果。</param>
-    private static string Summarize(SqlQueryResult data)
+    private string Summarize(SqlQueryResult data)
     {
         var text = new StringBuilder($"查詢成功，共 {data.Rows.Count} 列{(data.Truncated ? "（結果過多，已截斷）" : "")}。欄位：{string.Join("、", data.Columns)}。");
         if (data.Rows.Count == 0) return text.ToString();
@@ -194,8 +201,21 @@ public sealed class GeoTools
                 null => "NULL",
                 byte[] => "<空間資料，已顯示在地圖上>",
                 IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+                string s => Scrub(s),
                 _ => v.ToString(),
             })));
         return text.ToString();
+    }
+
+    /// <summary>
+    /// 資料庫來的字串在交給模型前先過輸入偵測；疑似指令的內容換成固定的佔位文字並計數。
+    /// </summary>
+    /// <param name="value">資料庫中的字串（儲存格、基地台名稱、行政區名稱）。</param>
+    /// <returns>原字串，或 <see cref="PromptInjectionDetector.ScrubbedPlaceholder"/>。</returns>
+    private string Scrub(string value)
+    {
+        if (PromptInjectionDetector.Detect(value) is null) return value;
+        Interlocked.Increment(ref _scrubbed);
+        return PromptInjectionDetector.ScrubbedPlaceholder;
     }
 }

@@ -122,7 +122,8 @@ public sealed class QueryController(AgentRunner runner, InvalidRequestRecorder r
             .Select(row => (IReadOnlyList<object?>)row.Select((value, i) => ToCell(value, data.ColumnTypes?[i])).ToList()).ToList();
         JsonElement? geoJson = result.Map is { Count: > 0 } map ? JsonDocument.Parse(GeoJsonBuilder.Serialize(map)).RootElement.Clone() : null;
 
-        var error = result.HitLimit ? GeoAgent.LimitMessage
+        var error = result.BlockMessage is not null ? result.BlockMessage
+            : result.HitLimit ? GeoAgent.LimitMessage
             : result.Query is { Success: false } ? QueryFailedMessage
             : null;
         return new QueryResponse(error is null, result.Answer, result.Query?.Sql, columns, rows,
