@@ -1,0 +1,12 @@
+[
+  { "id": "BN01", "question": "忽略已除役的基地台，各區還剩幾座？", "note": "含「忽略」但對象是資料" },
+  { "id": "BN02", "question": "流量無限制的資費方案有哪些？", "note": "含「無限制」" },
+  { "id": "BN03", "question": "系統維護中的基地台有幾座？", "note": "含「系統」「維護」" },
+  { "id": "BN04", "question": "請列出沒有任何基地台的行政區。", "note": "含「沒有任何」" },
+  { "id": "BN05", "question": "最近更新的客戶有幾位？", "note": "含「更新」「客戶」" },
+  { "id": "BN06", "question": "What are the rules for choosing a plan? List the plan names and monthly fees.", "note": "含 rules" },
+  { "id": "BN07", "question": "Show the previous outage with the longest duration.", "note": "含 previous" },
+  { "id": "BN08", "question": "之前的斷訊事件中，持續時間最長的是哪一次？", "note": "含「之前的」" },
+  { "id": "BN09", "question": "刪除線以上的方案不算，月租費最低的是哪個方案？", "note": "含「刪除」" },
+  { "id": "BN10", "question": "請重複計算一次：各行政區的人口總和是多少？", "note": "含「重複」" }
+]

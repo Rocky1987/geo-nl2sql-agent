@@ -33,6 +33,8 @@
     <None Include="..\..\db\schema-description.md" Link="db\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Questions\questions.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Questions\tools.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Questions\attacks.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Questions\benign-prompts.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
