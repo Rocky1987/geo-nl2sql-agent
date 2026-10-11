@@ -1,0 +1,571 @@
+{
+  "benchmarkSha256": "5486947b2b1bbf90cc9acdac2cb39219c46427238af2b5ace5d3d7736517ebc0",
+  "tracks": [
+    {
+      "track": "cloud",
+      "provider": "Anthropic",
+      "modelId": "claude-haiku-4-5",
+      "modelVersions": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "runs": 3,
+      "total": 60,
+      "first": {
+        "perRun": [
+          55,
+          55,
+          55
+        ],
+        "mean": 55,
+        "min": 55,
+        "max": 55
+      },
+      "final": {
+        "perRun": [
+          55,
+          55,
+          55
+        ],
+        "mean": 55,
+        "min": 55,
+        "max": 55
+      },
+      "byCategory": {
+        "single": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              15,
+              15,
+              15
+            ],
+            "mean": 15,
+            "min": 15,
+            "max": 15
+          },
+          "final": {
+            "perRun": [
+              15,
+              15,
+              15
+            ],
+            "mean": 15,
+            "min": 15,
+            "max": 15
+          }
+        },
+        "join": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              14,
+              14,
+              14
+            ],
+            "mean": 14,
+            "min": 14,
+            "max": 14
+          },
+          "final": {
+            "perRun": [
+              14,
+              14,
+              14
+            ],
+            "mean": 14,
+            "min": 14,
+            "max": 14
+          }
+        },
+        "aggregate": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              13,
+              13,
+              13
+            ],
+            "mean": 13,
+            "min": 13,
+            "max": 13
+          },
+          "final": {
+            "perRun": [
+              13,
+              13,
+              13
+            ],
+            "mean": 13,
+            "min": 13,
+            "max": 13
+          }
+        },
+        "spatial": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              13,
+              13,
+              13
+            ],
+            "mean": 13,
+            "min": 13,
+            "max": 13
+          },
+          "final": {
+            "perRun": [
+              13,
+              13,
+              13
+            ],
+            "mean": 13,
+            "min": 13,
+            "max": 13
+          }
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "count": 21,
+          "first": {
+            "perRun": [
+              21,
+              21,
+              21
+            ],
+            "mean": 21,
+            "min": 21,
+            "max": 21
+          },
+          "final": {
+            "perRun": [
+              21,
+              21,
+              21
+            ],
+            "mean": 21,
+            "min": 21,
+            "max": 21
+          }
+        },
+        "medium": {
+          "count": 21,
+          "first": {
+            "perRun": [
+              20,
+              20,
+              20
+            ],
+            "mean": 20,
+            "min": 20,
+            "max": 20
+          },
+          "final": {
+            "perRun": [
+              20,
+              20,
+              20
+            ],
+            "mean": 20,
+            "min": 20,
+            "max": 20
+          }
+        },
+        "hard": {
+          "count": 18,
+          "first": {
+            "perRun": [
+              14,
+              14,
+              14
+            ],
+            "mean": 14,
+            "min": 14,
+            "max": 14
+          },
+          "final": {
+            "perRun": [
+              14,
+              14,
+              14
+            ],
+            "mean": 14,
+            "min": 14,
+            "max": 14
+          }
+        }
+      },
+      "byOrigin": {
+        "original": {
+          "count": 30,
+          "first": {
+            "perRun": [
+              30,
+              30,
+              30
+            ],
+            "mean": 30,
+            "min": 30,
+            "max": 30
+          },
+          "final": {
+            "perRun": [
+              30,
+              30,
+              30
+            ],
+            "mean": 30,
+            "min": 30,
+            "max": 30
+          }
+        },
+        "new": {
+          "count": 30,
+          "first": {
+            "perRun": [
+              25,
+              25,
+              25
+            ],
+            "mean": 25,
+            "min": 25,
+            "max": 25
+          },
+          "final": {
+            "perRun": [
+              25,
+              25,
+              25
+            ],
+            "mean": 25,
+            "min": 25,
+            "max": 25
+          }
+        }
+      },
+      "firstFailures": {
+        "no_sql": 0,
+        "rejected": 0,
+        "exec_error": 6,
+        "wrong_result": 9,
+        "model_error": 0
+      },
+      "finalFailures": {
+        "no_sql": 0,
+        "rejected": 0,
+        "exec_error": 6,
+        "wrong_result": 9,
+        "model_error": 0
+      },
+      "rescued": 0,
+      "rescuedFrom": {},
+      "visibleFirstFailures": 6,
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelErrors": 0,
+      "pipelineMs": {
+        "p50": 1368,
+        "p95": 3008
+      },
+      "modelMs": {
+        "p50": 1366,
+        "p95": 3004
+      },
+      "dbMs": {
+        "p50": 2,
+        "p95": 6
+      },
+      "callsPerQuestion": 1.0666666666666667,
+      "inputTokensPerQuestion": 1651.2333333333333,
+      "outputTokensPerQuestion": 109.5,
+      "totalCalls": 192,
+      "totalInputTokens": 297222,
+      "totalOutputTokens": 19710,
+      "unstableIds": []
+    },
+    {
+      "track": "local",
+      "provider": "Ollama",
+      "modelId": "qwen2.5:3b",
+      "modelVersions": [
+        "qwen2.5:3b"
+      ],
+      "runs": 3,
+      "total": 60,
+      "first": {
+        "perRun": [
+          21,
+          21,
+          21
+        ],
+        "mean": 21,
+        "min": 21,
+        "max": 21
+      },
+      "final": {
+        "perRun": [
+          22,
+          22,
+          22
+        ],
+        "mean": 22,
+        "min": 22,
+        "max": 22
+      },
+      "byCategory": {
+        "single": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              8,
+              8,
+              8
+            ],
+            "mean": 8,
+            "min": 8,
+            "max": 8
+          },
+          "final": {
+            "perRun": [
+              8,
+              8,
+              8
+            ],
+            "mean": 8,
+            "min": 8,
+            "max": 8
+          }
+        },
+        "join": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              7,
+              7,
+              7
+            ],
+            "mean": 7,
+            "min": 7,
+            "max": 7
+          },
+          "final": {
+            "perRun": [
+              7,
+              7,
+              7
+            ],
+            "mean": 7,
+            "min": 7,
+            "max": 7
+          }
+        },
+        "aggregate": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              5,
+              5,
+              5
+            ],
+            "mean": 5,
+            "min": 5,
+            "max": 5
+          },
+          "final": {
+            "perRun": [
+              5,
+              5,
+              5
+            ],
+            "mean": 5,
+            "min": 5,
+            "max": 5
+          }
+        },
+        "spatial": {
+          "count": 15,
+          "first": {
+            "perRun": [
+              1,
+              1,
+              1
+            ],
+            "mean": 1,
+            "min": 1,
+            "max": 1
+          },
+          "final": {
+            "perRun": [
+              2,
+              2,
+              2
+            ],
+            "mean": 2,
+            "min": 2,
+            "max": 2
+          }
+        }
+      },
+      "byDifficulty": {
+        "easy": {
+          "count": 21,
+          "first": {
+            "perRun": [
+              12,
+              12,
+              12
+            ],
+            "mean": 12,
+            "min": 12,
+            "max": 12
+          },
+          "final": {
+            "perRun": [
+              12,
+              12,
+              12
+            ],
+            "mean": 12,
+            "min": 12,
+            "max": 12
+          }
+        },
+        "medium": {
+          "count": 21,
+          "first": {
+            "perRun": [
+              6,
+              6,
+              6
+            ],
+            "mean": 6,
+            "min": 6,
+            "max": 6
+          },
+          "final": {
+            "perRun": [
+              7,
+              7,
+              7
+            ],
+            "mean": 7,
+            "min": 7,
+            "max": 7
+          }
+        },
+        "hard": {
+          "count": 18,
+          "first": {
+            "perRun": [
+              3,
+              3,
+              3
+            ],
+            "mean": 3,
+            "min": 3,
+            "max": 3
+          },
+          "final": {
+            "perRun": [
+              3,
+              3,
+              3
+            ],
+            "mean": 3,
+            "min": 3,
+            "max": 3
+          }
+        }
+      },
+      "byOrigin": {
+        "original": {
+          "count": 30,
+          "first": {
+            "perRun": [
+              14,
+              14,
+              14
+            ],
+            "mean": 14,
+            "min": 14,
+            "max": 14
+          },
+          "final": {
+            "perRun": [
+              14,
+              14,
+              14
+            ],
+            "mean": 14,
+            "min": 14,
+            "max": 14
+          }
+        },
+        "new": {
+          "count": 30,
+          "first": {
+            "perRun": [
+              7,
+              7,
+              7
+            ],
+            "mean": 7,
+            "min": 7,
+            "max": 7
+          },
+          "final": {
+            "perRun": [
+              8,
+              8,
+              8
+            ],
+            "mean": 8,
+            "min": 8,
+            "max": 8
+          }
+        }
+      },
+      "firstFailures": {
+        "no_sql": 0,
+        "rejected": 36,
+        "exec_error": 30,
+        "wrong_result": 51,
+        "model_error": 0
+      },
+      "finalFailures": {
+        "no_sql": 0,
+        "rejected": 30,
+        "exec_error": 27,
+        "wrong_result": 57,
+        "model_error": 0
+      },
+      "rescued": 3,
+      "rescuedFrom": {
+        "exec_error": 3
+      },
+      "visibleFirstFailures": 66,
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelErrors": 0,
+      "pipelineMs": {
+        "p50": 2600,
+        "p95": 13574
+      },
+      "modelMs": {
+        "p50": 2598,
+        "p95": 13574
+      },
+      "dbMs": {
+        "p50": 2,
+        "p95": 10
+      },
+      "callsPerQuestion": 1.6833333333333333,
+      "inputTokensPerQuestion": 2348.4666666666667,
+      "outputTokensPerQuestion": 257.18333333333334,
+      "totalCalls": 303,
+      "totalInputTokens": 422724,
+      "totalOutputTokens": 46293,
+      "unstableIds": []
+    }
+  ]
+}

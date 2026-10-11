@@ -1,0 +1,13 @@
+# 沿用 gitleaks 預設規則，只加一條窄範圍的放行。
+[extend]
+useDefault = true
+
+# M5 的模型回應快取（eval/results/m5/cache/*.jsonl）每行的 key 是請求的 SHA-256（64 個十六進位字元），
+# 不是金鑰，但會被 generic-api-key 誤判。只放行這個目錄裡「整串是 64 位十六進位」的值；
+# 其他路徑與其他形式的字串仍照預設規則掃描。
+[[allowlists]]
+description = "M5 快取檔的請求雜湊（SHA-256），非金鑰"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''eval/results/m5/cache/[^/]+\.jsonl$''']
+regexes = ['''^[0-9a-f]{64}$''']

@@ -1,0 +1,1538 @@
+{
+  "benchmarkSha256": "5486947b2b1bbf90cc9acdac2cb39219c46427238af2b5ace5d3d7736517ebc0",
+  "systemPromptSha256": "4712e1b2ef5fa42bc9d1a4231ac97bd9c497192f71530e7862db178a95532834",
+  "promptVersion": "described",
+  "maxCorrections": 2,
+  "track": "cloud",
+  "provider": "Anthropic",
+  "modelId": "claude-haiku-4-5",
+  "temperature": 0,
+  "maxOutputTokens": 1024,
+  "run": 1,
+  "startedAt": "2026-10-11T20:11:37.2908518+08:00",
+  "cacheMode": "default",
+  "cacheHits": 3,
+  "cacheMisses": 61,
+  "items": [
+    {
+      "id": "S01",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT StationName\nFROM BaseStation\nWHERE Status = 'Maintenance'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1500,
+      "outputTokens": 25,
+      "modelMs": 1127,
+      "dbMs": 7,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S02",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT PlanName, MonthlyFee\nFROM ServicePlan\nWHERE MonthlyFee < 500\nORDER BY MonthlyFee",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1516,
+      "outputTokens": 42,
+      "modelMs": 937,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S03",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS StationCount\nFROM BaseStation\nWHERE Band = '3500MHz'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1496,
+      "outputTokens": 29,
+      "modelMs": 989,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S04",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS GovernmentCustomerCount\nFROM Customer\nWHERE flg1 = 2",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1498,
+      "outputTokens": 31,
+      "modelMs": 1276,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S05",
+      "category": "single",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS SubscriptionCount\nFROM Subscription\nWHERE dt2 >= '2026-01-01' AND dt2 <= '2026-03-31'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1530,
+      "outputTokens": 48,
+      "modelMs": 995,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S06",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 5\n    StationName,\n    InstalledDate\nFROM BaseStation\nORDER BY InstalledDate ASC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1527,
+      "outputTokens": 37,
+      "modelMs": 910,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S07",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(DISTINCT StationId) AS OutageStationCount\nFROM OutageEvent",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1506,
+      "outputTokens": 28,
+      "modelMs": 951,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S08",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS OutageCount\nFROM OutageEvent\nWHERE YEAR(StartedAt) = 2026\n  AND MONTH(StartedAt) = 3\n  AND DurationMinutes > 480",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1517,
+      "outputTokens": 57,
+      "modelMs": 1095,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S09",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 1 DurationMinutes\nFROM OutageEvent\nWHERE Cause = 'FiberCut'\nORDER BY DurationMinutes DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1515,
+      "outputTokens": 42,
+      "modelMs": 939,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S10",
+      "category": "single",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS SubscriptionCount\nFROM Subscription\nWHERE DATEDIFF(MONTH, StartDate, dt2) = 36",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1504,
+      "outputTokens": 40,
+      "modelMs": 969,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S11",
+      "category": "single",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    Band,\n    StationName,\n    InstalledDate\nFROM BaseStation\nWHERE Status = 'Active'\n    AND InstalledDate = (\n        SELECT MAX(InstalledDate)\n        FROM BaseStation bs2\n        WHERE bs2.Band = BaseStation.Band\n            AND bs2.Status = 'Active'\n    )\nORDER BY Band",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1510,
+      "outputTokens": 95,
+      "modelMs": 1435,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S12",
+      "category": "single",
+      "difficulty": "easy",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS OutageCount\nFROM OutageEvent\nWHERE Cause = 'PowerFailure'\n  AND DurationMinutes > (SELECT AVG(DurationMinutes) FROM OutageEvent)",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1520,
+      "outputTokens": 55,
+      "modelMs": 1085,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S13",
+      "category": "single",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n  ROUND(\n    CAST(SUM(CASE WHEN Cause = 'Weather' THEN 1 ELSE 0 END) AS FLOAT) \n    / COUNT(*) * 100, \n    1\n  ) AS WeatherPercentage\nFROM OutageEvent\nWHERE YEAR(StartedAt) = 2026\n  AND MONTH(StartedAt) IN (4, 5, 6)",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1537,
+      "outputTokens": 112,
+      "modelMs": 1531,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S14",
+      "category": "single",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(DISTINCT c.CustomerId) AS CustomerCount\nFROM Customer c\nWHERE EXISTS (\n    SELECT 1\n    FROM Subscription s1\n    WHERE s1.CustomerId = c.CustomerId\n    AND EXISTS (\n        SELECT 1\n        FROM Subscription s2\n        WHERE s2.CustomerId = c.CustomerId\n        AND s2.SubscriptionId <> s1.SubscriptionId\n        AND s2.StartDate > s1.StartDate\n        AND s2.StartDate < s1.dt2\n    )\n)",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1530,
+      "outputTokens": 136,
+      "modelMs": 1707,
+      "dbMs": 6,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "S15",
+      "category": "single",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "WITH MonthlyOutages AS (\n  SELECT \n    MONTH(StartedAt) AS MonthNum,\n    YEAR(StartedAt) AS YearNum,\n    Cause,\n    DurationMinutes,\n    SUM(DurationMinutes) OVER (PARTITION BY YEAR(StartedAt), MONTH(StartedAt)) AS MonthTotalMinutes,\n    ROW_NUMBER() OVER (PARTITION BY YEAR(StartedAt), MONTH(StartedAt) ORDER BY DurationMinutes DESC) AS RankInMonth\n  FROM OutageEvent\n  WHERE YEAR(StartedAt) = 2026 \n    AND MONTH(StartedAt) BETWEEN 1 AND 6\n)\nSELECT \n  MonthNum AS 月份,\n  Cause AS 原因,\n  DurationMinutes AS 分鐘數,\n  ROUND(CAST(DurationMinutes AS FLOAT) / MonthTotalMinutes * 100, 1) AS 百分比\nFROM MonthlyOutages\nWHERE RankInMonth = 1\nORDER BY MonthNum",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1591,
+      "outputTokens": 272,
+      "modelMs": 2717,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J01",
+      "category": "join",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT bs.StationName\nFROM BaseStation bs\nINNER JOIN District d ON bs.DistrictId = d.DistrictId\nWHERE d.DistrictName = '中央區'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1500,
+      "outputTokens": 53,
+      "modelMs": 1111,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J02",
+      "category": "join",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(DISTINCT c.CustomerId) AS CustomerCount\nFROM Customer c\nINNER JOIN Subscription s ON c.CustomerId = s.CustomerId\nINNER JOIN ServicePlan sp ON s.PlanId = sp.PlanId\nWHERE sp.PlanName = '無限方案'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1513,
+      "outputTokens": 76,
+      "modelMs": 1286,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J03",
+      "category": "join",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT DISTINCT bs.StationName\nFROM BaseStation bs\nWHERE bs.StationId NOT IN (\n    SELECT DISTINCT oe.StationId\n    FROM OutageEvent oe\n)\nORDER BY bs.StationName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1507,
+      "outputTokens": 60,
+      "modelMs": 1220,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J04",
+      "category": "join",
+      "difficulty": "hard",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT DISTINCT c.CustomerId, c.FullName\nFROM Customer c\nINNER JOIN District d ON c.DistrictId = d.DistrictId\nINNER JOIN Subscription s ON c.CustomerId = s.CustomerId\nINNER JOIN ServicePlan sp ON s.PlanId = sp.PlanId\nWHERE d.DistrictName = '南湖區'\n  AND c.flg1 = 1\n  AND sp.PlanName LIKE '%企業%'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1535,
+      "outputTokens": 124,
+      "modelMs": 1562,
+      "dbMs": 8,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J05",
+      "category": "join",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    s.SubscriptionId,\n    sp.PlanName,\n    s.dt2\nFROM Subscription s\nINNER JOIN ServicePlan sp ON s.PlanId = sp.PlanId\nWHERE YEAR(s.dt2) = 2025\n  AND sp.MonthlyFee >= 999\nORDER BY s.SubscriptionId",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1541,
+      "outputTokens": 94,
+      "modelMs": 1351,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J06",
+      "category": "join",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT SUM(oe.DurationMinutes) AS TotalOutageMinutes\nFROM OutageEvent oe\nJOIN BaseStation bs ON oe.StationId = bs.StationId\nJOIN District d ON bs.DistrictId = d.DistrictId\nWHERE d.DistrictName = '白石區'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1505,
+      "outputTokens": 84,
+      "modelMs": 1254,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J07",
+      "category": "join",
+      "difficulty": "hard",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(DISTINCT c.CustomerId) AS Count\nFROM Customer c\nWHERE c.flg1 = 2\n  AND c.CustomerId NOT IN (\n    SELECT DISTINCT s.CustomerId\n    FROM Subscription s\n    JOIN ServicePlan sp ON s.PlanId = sp.PlanId\n    WHERE sp.PlanName = '學生方案'\n  )",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1510,
+      "outputTokens": 97,
+      "modelMs": 1419,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J08",
+      "category": "join",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT DISTINCT bs.StationName\nFROM BaseStation bs\nINNER JOIN OutageEvent oe ON bs.StationId = oe.StationId\nWHERE bs.Status = 'Active'\n  AND oe.Cause = 'Hardware'\n  AND oe.DurationMinutes > 300",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1511,
+      "outputTokens": 79,
+      "modelMs": 1181,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J09",
+      "category": "join",
+      "difficulty": "easy",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT DISTINCT bs.StationName\nFROM BaseStation bs\nINNER JOIN OutageEvent oe ON bs.StationId = oe.StationId\nWHERE bs.Status = 'Decommissioned'\n  AND oe.Cause = 'Software'",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1527,
+      "outputTokens": 70,
+      "modelMs": 1134,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J10",
+      "category": "join",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS OutageCount\nFROM OutageEvent oe\nINNER JOIN BaseStation bs ON oe.StationId = bs.StationId\nINNER JOIN District d ON bs.DistrictId = d.DistrictId\nWHERE d.DistrictName = '中央區'\n  AND YEAR(oe.StartedAt) = 2026\n  AND MONTH(oe.StartedAt) = 5",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1511,
+      "outputTokens": 110,
+      "modelMs": 1427,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J11",
+      "category": "join",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS NewSubscriptions\nFROM Subscription s\nINNER JOIN ServicePlan sp ON s.PlanId = sp.PlanId\nWHERE sp.DataCapGb >= 50\n  AND YEAR(s.StartDate) = 2025",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1530,
+      "outputTokens": 67,
+      "modelMs": 1235,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J12",
+      "category": "join",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "WITH OutageSummary AS (\n  SELECT \n    d.DistrictId,\n    d.DistrictName,\n    SUM(o.DurationMinutes) AS TotalOutageMinutes\n  FROM OutageEvent o\n  JOIN BaseStation bs ON o.StationId = bs.StationId\n  JOIN District d ON bs.DistrictId = d.DistrictId\n  GROUP BY d.DistrictId, d.DistrictName\n),\nMaxOutageDistrict AS (\n  SELECT TOP 1\n    DistrictId,\n    DistrictName,\n    TotalOutageMinutes\n  FROM OutageSummary\n  ORDER BY TotalOutageMinutes DESC\n),\nEnterpriseCount AS (\n  SELECT \n    c.DistrictId,\n    COUNT(*) AS EnterpriseCustomerCount\n  FROM Customer c\n  WHERE c.flg1 = 1\n  GROUP BY c.DistrictId\n)\nSELECT \n  m.DistrictName,\n  COALESCE(e.EnterpriseCustomerCount, 0) AS EnterpriseCustomerCount\nFROM MaxOutageDistrict m\nLEFT JOIN EnterpriseCount e ON m.DistrictId = e.DistrictId",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1526,
+      "outputTokens": 314,
+      "modelMs": 3004,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J13",
+      "category": "join",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(DISTINCT bs.StationId) AS StationCount\nFROM BaseStation bs\nINNER JOIN District d ON bs.DistrictId = d.DistrictId\nWHERE d.DistrictName = '中央區'\n  AND bs.Status = 'Active'\n  AND bs.StationId NOT IN (\n    SELECT DISTINCT oe.StationId\n    FROM OutageEvent oe\n    WHERE oe.StartedAt >= '2026-07-01'\n      AND oe.StartedAt < '2026-10-01'\n  )",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1533,
+      "outputTokens": 142,
+      "modelMs": 1838,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J14",
+      "category": "join",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": false,
+      "firstFailure": "exec_error",
+      "correct": false,
+      "failure": "exec_error",
+      "attempts": [
+        {
+          "sql": "SELECT \n    c.CustomerId,\n    c.FullName\nFROM Customer c\nWHERE c.flg1 = 1\nGROUP BY c.CustomerId, c.FullName\nHAVING COUNT(CASE \n    WHEN EXISTS (\n        SELECT 1\n        FROM Subscription s\n        WHERE s.CustomerId = c.CustomerId\n        AND s.StartDate <= '2026-01-01'\n        AND s.dt2 >= '2026-01-01'\n    )\n    THEN 1\nEND) >= 2",
+          "failure": "exec_error",
+          "message": "這個 SQL 執行失敗：執行失敗（錯誤碼 130）。"
+        },
+        {
+          "sql": "SELECT \n    c.CustomerId,\n    c.FullName\nFROM Customer c\nWHERE c.flg1 = 1\nGROUP BY c.CustomerId, c.FullName\nHAVING COUNT(DISTINCT (\n    SELECT s.SubscriptionId\n    FROM Subscription s\n    WHERE s.CustomerId = c.CustomerId\n    AND s.StartDate <= '2026-01-01'\n    AND s.dt2 >= '2026-01-01'\n)) >= 2",
+          "failure": "exec_error",
+          "message": "這個 SQL 執行失敗：執行失敗（錯誤碼 130）。"
+        },
+        {
+          "sql": "SELECT \n    c.CustomerId,\n    c.FullName\nFROM Customer c\nWHERE c.flg1 = 1\nGROUP BY c.CustomerId, c.FullName\nHAVING COUNT(*) >= 2\n    AND SUM(CASE \n        WHEN s.StartDate <= '2026-01-01' AND s.dt2 >= '2026-01-01'\n        THEN 1 ELSE 0 \n    END) >= 2",
+          "failure": "exec_error",
+          "message": "這個 SQL 執行失敗：有無法繫結的多段式識別碼，請檢查資料表別名與 CTE 的作用範圍。"
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 3,
+      "inputTokens": 5205,
+      "outputTokens": 383,
+      "modelMs": 4283,
+      "dbMs": 5,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "J15",
+      "category": "join",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.DistrictName,\n    ROUND(AVG(sp.MonthlyFee), 0) AS AvgMonthlyFee\nFROM District d\nINNER JOIN Customer c ON d.DistrictId = c.DistrictId\nINNER JOIN Subscription s ON c.CustomerId = s.CustomerId\nINNER JOIN ServicePlan sp ON s.PlanId = sp.PlanId\nWHERE c.flg1 = 1\nGROUP BY d.DistrictId, d.DistrictName\nHAVING AVG(sp.MonthlyFee) > 700\nORDER BY AvgMonthlyFee DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1556,
+      "outputTokens": 164,
+      "modelMs": 1784,
+      "dbMs": 5,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A01",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.DistrictName,\n    COUNT(b.StationId) AS BaseStationCount\nFROM District d\nLEFT JOIN BaseStation b ON d.DistrictId = b.DistrictId\nGROUP BY d.DistrictId, d.DistrictName\nORDER BY d.DistrictName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1512,
+      "outputTokens": 83,
+      "modelMs": 1221,
+      "dbMs": 5,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A02",
+      "category": "aggregate",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    Cause,\n    ROUND(AVG(CAST(DurationMinutes AS FLOAT)), 2) AS AvgDurationMinutes\nFROM OutageEvent\nGROUP BY Cause\nORDER BY Cause",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1534,
+      "outputTokens": 60,
+      "modelMs": 1126,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A03",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    bs.StationName,\n    COUNT(oe.OutageId) AS OutageCount\nFROM BaseStation bs\nINNER JOIN OutageEvent oe ON bs.StationId = oe.StationId\nGROUP BY bs.StationId, bs.StationName\nHAVING COUNT(oe.OutageId) >= 4\nORDER BY OutageCount DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1521,
+      "outputTokens": 96,
+      "modelMs": 1491,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A04",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 3\n    d.DistrictName,\n    COUNT(c.CustomerId) AS EnterpriseCustomerCount\nFROM District d\nINNER JOIN Customer c ON d.DistrictId = c.DistrictId\nWHERE c.flg1 = 1\nGROUP BY d.DistrictId, d.DistrictName\nORDER BY EnterpriseCustomerCount DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1521,
+      "outputTokens": 100,
+      "modelMs": 1387,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A05",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    YEAR(dt2) AS ContractYear,\n    COUNT(*) AS SubscriptionCount\nFROM Subscription\nGROUP BY YEAR(dt2)\nORDER BY ContractYear ASC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1521,
+      "outputTokens": 54,
+      "modelMs": 1031,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A06",
+      "category": "aggregate",
+      "difficulty": "hard",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    sp.PlanName,\n    SUM(sp.MonthlyFee) AS TotalMonthlyRevenue\nFROM Subscription s\nINNER JOIN ServicePlan sp ON s.PlanId = sp.PlanId\nWHERE s.StartDate <= '2026-06-30'\n  AND s.dt2 >= '2026-06-30'\nGROUP BY sp.PlanName\nORDER BY TotalMonthlyRevenue DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1560,
+      "outputTokens": 115,
+      "modelMs": 1409,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A07",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.DistrictName,\n    ROUND(100.0 * SUM(CASE WHEN bs.Status = 'Active' THEN 1 ELSE 0 END) / COUNT(*), 0) AS ActivePercentage\nFROM District d\nINNER JOIN BaseStation bs ON d.DistrictId = bs.DistrictId\nGROUP BY d.DistrictId, d.DistrictName\nHAVING 100.0 * SUM(CASE WHEN bs.Status = 'Active' THEN 1 ELSE 0 END) / COUNT(*) < 82\nORDER BY ActivePercentage ASC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1542,
+      "outputTokens": 161,
+      "modelMs": 1874,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A08",
+      "category": "aggregate",
+      "difficulty": "easy",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    Cause,\n    COUNT(*) AS OutageCount\nFROM OutageEvent\nGROUP BY Cause\nORDER BY OutageCount DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1507,
+      "outputTokens": 41,
+      "modelMs": 909,
+      "dbMs": 1,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A09",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    DATEPART(QUARTER, StartedAt) AS Quarter,\n    COUNT(*) AS OutageCount\nFROM OutageEvent\nWHERE YEAR(StartedAt) = 2026\n    AND DATEPART(QUARTER, StartedAt) IN (1, 2, 3)\nGROUP BY DATEPART(QUARTER, StartedAt)\nORDER BY Quarter",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1534,
+      "outputTokens": 95,
+      "modelMs": 1366,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A10",
+      "category": "aggregate",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.DistrictName,\n    ROUND(CAST(d.Population AS FLOAT) / COUNT(b.StationId), 0) AS PeoplePerStation\nFROM District d\nLEFT JOIN BaseStation b ON d.DistrictId = b.DistrictId\nGROUP BY d.DistrictId, d.DistrictName, d.Population\nORDER BY d.DistrictId",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1536,
+      "outputTokens": 105,
+      "modelMs": 1509,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A11",
+      "category": "aggregate",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": false,
+      "firstFailure": "wrong_result",
+      "correct": false,
+      "failure": "wrong_result",
+      "attempts": [
+        {
+          "sql": "SELECT \n    sp.PlanName,\n    ROUND(AVG(DATEDIFF(MONTH, s.StartDate, s.dt2)), 1) AS AvgContractMonths\nFROM ServicePlan sp\nLEFT JOIN Subscription s ON sp.PlanId = s.PlanId\nGROUP BY sp.PlanId, sp.PlanName\nORDER BY sp.PlanId",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1528,
+      "outputTokens": 101,
+      "modelMs": 1440,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A12",
+      "category": "aggregate",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "WITH OutageSummary AS (\n  SELECT \n    StationId,\n    SUM(DurationMinutes) AS TotalOutageMinutes\n  FROM OutageEvent\n  GROUP BY StationId\n),\nRankedStations AS (\n  SELECT \n    d.DistrictName,\n    b.StationName,\n    os.TotalOutageMinutes,\n    ROW_NUMBER() OVER (PARTITION BY d.DistrictId ORDER BY os.TotalOutageMinutes DESC) AS rn\n  FROM BaseStation b\n  INNER JOIN District d ON b.DistrictId = d.DistrictId\n  LEFT JOIN OutageSummary os ON b.StationId = os.StationId\n)\nSELECT \n  DistrictName,\n  StationName,\n  ISNULL(TotalOutageMinutes, 0) AS TotalOutageMinutes\nFROM RankedStations\nWHERE rn = 1\nORDER BY DistrictName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1537,
+      "outputTokens": 244,
+      "modelMs": 2517,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A13",
+      "category": "aggregate",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": false,
+      "firstFailure": "wrong_result",
+      "correct": false,
+      "failure": "wrong_result",
+      "attempts": [
+        {
+          "sql": "WITH MonthlyOutage AS (\n  SELECT \n    MONTH(StartedAt) AS Month,\n    SUM(DurationMinutes) AS TotalMinutes\n  FROM OutageEvent\n  WHERE YEAR(StartedAt) = 2026\n    AND MONTH(StartedAt) BETWEEN 2 AND 9\n  GROUP BY MONTH(StartedAt)\n)\nSELECT \n  Month,\n  TotalMinutes - LAG(TotalMinutes) OVER (ORDER BY Month) AS Difference\nFROM MonthlyOutage\nORDER BY Month",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1552,
+      "outputTokens": 141,
+      "modelMs": 1728,
+      "dbMs": 5,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A14",
+      "category": "aggregate",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "WITH CustomerCounts AS (\n  SELECT \n    d.DistrictId,\n    d.DistrictName,\n    COUNT(*) AS TotalCustomers,\n    SUM(CASE WHEN c.flg1 IN (1, 2) THEN 1 ELSE 0 END) AS BusinessGovCustomers\n  FROM District d\n  LEFT JOIN Customer c ON d.DistrictId = c.DistrictId\n  GROUP BY d.DistrictId, d.DistrictName\n)\nSELECT TOP 3\n  DistrictName,\n  ROUND(CAST(BusinessGovCustomers AS FLOAT) / NULLIF(TotalCustomers, 0) * 100, 1) AS Percentage\nFROM CustomerCounts\nWHERE TotalCustomers > 0\nORDER BY Percentage DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1561,
+      "outputTokens": 203,
+      "modelMs": 2258,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "A15",
+      "category": "aggregate",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "WITH FirstSubscription AS (\n  SELECT \n    CustomerId,\n    PlanId,\n    ROW_NUMBER() OVER (PARTITION BY CustomerId ORDER BY StartDate ASC) AS rn\n  FROM Subscription\n)\nSELECT \n  sp.PlanName,\n  COUNT(DISTINCT fs.CustomerId) AS CustomerCount\nFROM FirstSubscription fs\nINNER JOIN ServicePlan sp ON fs.PlanId = sp.PlanId\nWHERE fs.rn = 1\nGROUP BY sp.PlanName\nORDER BY CustomerCount DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1545,
+      "outputTokens": 135,
+      "modelMs": 1657,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G01",
+      "category": "spatial",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS StationCount\nFROM BaseStation\nWHERE Location.STDistance(geography::Point(25.05, 121.55, 4326)) <= 3000",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1510,
+      "outputTokens": 48,
+      "modelMs": 1137,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G02",
+      "category": "spatial",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 5\n    StationName,\n    ROUND(Location.STDistance(geography::Point(25.12, 121.43, 4326)), 0) AS DistanceMeters\nFROM BaseStation\nORDER BY Location.STDistance(geography::Point(25.12, 121.43, 4326)) ASC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1550,
+      "outputTokens": 85,
+      "modelMs": 1385,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G03",
+      "category": "spatial",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 1 d.DistrictName\nFROM District d\nWHERE d.Boundary.STContains(geography::Point(24.93, 121.68, 4326)) = 1",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1522,
+      "outputTokens": 54,
+      "modelMs": 1518,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G04",
+      "category": "spatial",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n  DistrictName,\n  ROUND(Boundary.STArea() / 1000000, 2) AS AreaSqKm\nFROM District\nORDER BY DistrictName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1519,
+      "outputTokens": 54,
+      "modelMs": 1145,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G05",
+      "category": "spatial",
+      "difficulty": "easy",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 3\n    DistrictName\nFROM District\nORDER BY (Population / (Boundary.STArea() / 1000000)) DESC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1521,
+      "outputTokens": 41,
+      "modelMs": 1100,
+      "dbMs": 2,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G06",
+      "category": "spatial",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT DISTINCT b.StationName\nFROM BaseStation b\nCROSS JOIN BaseStation bs\nWHERE bs.StationId = (SELECT StationId FROM BaseStation WHERE StationName = 'BS-0005')\n  AND b.StationId != bs.StationId\n  AND b.Location.STDistance(bs.Location) <= 2000\nORDER BY b.StationName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1523,
+      "outputTokens": 96,
+      "modelMs": 1444,
+      "dbMs": 6,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G07",
+      "category": "spatial",
+      "difficulty": "medium",
+      "origin": "original",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS GovernmentCustomerCount\nFROM Customer c\nINNER JOIN District d ON c.DistrictId = d.DistrictId\nWHERE d.Boundary.STContains(geography::Point(25.15, 121.45, 4326)) = 1\n  AND c.flg1 = 2",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1522,
+      "outputTokens": 86,
+      "modelMs": 1244,
+      "dbMs": 5,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G08",
+      "category": "spatial",
+      "difficulty": "easy",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS ActiveStationCount\nFROM BaseStation\nWHERE Status = 'Active'\n  AND Location.STDistance(geography::Point(24.96, 121.56, 4326)) <= 2000",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1529,
+      "outputTokens": 58,
+      "modelMs": 1185,
+      "dbMs": 3,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G09",
+      "category": "spatial",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT COUNT(*) AS StationCount\nFROM BaseStation bs\nWHERE bs.DistrictId != (SELECT DistrictId FROM District WHERE DistrictName = '中央區')\n  AND bs.Location.STDistance((SELECT Boundary FROM District WHERE DistrictName = '中央區')) < 1200",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1517,
+      "outputTokens": 79,
+      "modelMs": 1337,
+      "dbMs": 5,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G10",
+      "category": "spatial",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": false,
+      "firstFailure": "wrong_result",
+      "correct": false,
+      "failure": "wrong_result",
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.DistrictName,\n    ROUND(COUNT(b.StationId) * 1000000 / d.Boundary.STArea(), 2) AS StationsPerHundredSqKm\nFROM District d\nLEFT JOIN BaseStation b ON d.DistrictId = b.DistrictId\nGROUP BY d.DistrictId, d.DistrictName, d.Boundary.STArea()\nORDER BY d.DistrictName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1542,
+      "outputTokens": 119,
+      "modelMs": 1690,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G11",
+      "category": "spatial",
+      "difficulty": "medium",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT TOP 1\n    bs.StationName,\n    d.DistrictName,\n    ROUND(bs.Location.STDistance(geography::Point(25.1, 121.5, 4326)), 0) AS DistanceMeters\nFROM BaseStation bs\nINNER JOIN District d ON bs.DistrictId = d.DistrictId\nWHERE bs.Status = 'Maintenance'\nORDER BY bs.Location.STDistance(geography::Point(25.1, 121.5, 4326)) ASC",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1551,
+      "outputTokens": 132,
+      "modelMs": 1671,
+      "dbMs": 4,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G12",
+      "category": "spatial",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "WITH DistrictStats AS (\n  SELECT\n    SUM(Population) AS TotalPopulation,\n    SUM(Boundary.STArea()) AS TotalArea\n  FROM District\n),\nDistrictDensity AS (\n  SELECT\n    d.DistrictId,\n    d.DistrictName,\n    d.Population,\n    d.Boundary.STArea() AS Area,\n    d.Population / d.Boundary.STArea() AS Density,\n    (SELECT TotalPopulation FROM DistrictStats) / (SELECT TotalArea FROM DistrictStats) AS OverallDensity\n  FROM District d\n)\nSELECT\n  dd.DistrictName,\n  COUNT(bs.StationId) AS ActiveStationCount\nFROM DistrictDensity dd\nLEFT JOIN BaseStation bs ON dd.DistrictId = bs.DistrictId AND bs.Status = 'Active'\nWHERE dd.Density > dd.OverallDensity\nGROUP BY dd.DistrictName\nORDER BY dd.DistrictName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1545,
+      "outputTokens": 257,
+      "modelMs": 2686,
+      "dbMs": 6,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G13",
+      "category": "spatial",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.StationName AS DecommissionedStation,\n    a.StationName AS NearestActiveStation,\n    CAST(ROUND(d.Location.STDistance(a.Location), 0) AS INT) AS DistanceMeters\nFROM BaseStation d\nCROSS APPLY (\n    SELECT TOP 1 a.StationId, a.StationName, a.Location\n    FROM BaseStation a\n    WHERE a.Status = 'Active'\n    ORDER BY d.Location.STDistance(a.Location) ASC\n) a\nWHERE d.Status = 'Decommissioned'\nORDER BY d.StationId",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1556,
+      "outputTokens": 162,
+      "modelMs": 1951,
+      "dbMs": 8,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G14",
+      "category": "spatial",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": true,
+      "firstFailure": null,
+      "correct": true,
+      "failure": null,
+      "attempts": [
+        {
+          "sql": "SELECT \n    d.DistrictName,\n    COUNT(c.CustomerId) AS GovernmentCustomerCount\nFROM District d\nINNER JOIN Customer c ON d.DistrictId = c.DistrictId\nWHERE d.Boundary.STIntersects(\n    geography::Point(25.09, 121.59, 4326).STBuffer(3000)\n) = 1\n    AND c.flg1 = 2\nGROUP BY d.DistrictName\nORDER BY d.DistrictName",
+          "failure": null,
+          "message": null
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 1,
+      "inputTokens": 1559,
+      "outputTokens": 132,
+      "modelMs": 1765,
+      "dbMs": 9,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "G15",
+      "category": "spatial",
+      "difficulty": "hard",
+      "origin": "new",
+      "firstCorrect": false,
+      "firstFailure": "exec_error",
+      "correct": false,
+      "failure": "exec_error",
+      "attempts": [
+        {
+          "sql": "SELECT TOP 3\n    bs.StationName,\n    ROUND(bs.Location.STDistance(geography::Point(25.15, 121.65, 4326)), 0) AS DistanceMeters\nFROM BaseStation bs\nINNER JOIN OutageEvent oe ON bs.StationId = oe.StationId\nWHERE YEAR(oe.StartedAt) = 2026 AND MONTH(oe.StartedAt) = 3\nGROUP BY bs.StationId, bs.StationName, bs.Location\nORDER BY DistanceMeters ASC",
+          "failure": "exec_error",
+          "message": "這個 SQL 執行失敗：執行失敗（錯誤碼 249）。"
+        },
+        {
+          "sql": "SELECT TOP 3\n    bs.StationName,\n    ROUND(CAST(bs.Location.STDistance(geography::Point(25.15, 121.65, 4326)) AS FLOAT), 0) AS DistanceMeters\nFROM BaseStation bs\nINNER JOIN OutageEvent oe ON bs.StationId = oe.StationId\nWHERE YEAR(oe.StartedAt) = 2026 AND MONTH(oe.StartedAt) = 3\nGROUP BY bs.StationId, bs.StationName, bs.Location\nORDER BY DistanceMeters ASC",
+          "failure": "exec_error",
+          "message": "這個 SQL 執行失敗：執行失敗（錯誤碼 249）。"
+        },
+        {
+          "sql": "SELECT TOP 3\n    bs.StationName,\n    CAST(ROUND(bs.Location.STDistance(geography::Point(25.15, 121.65, 4326)), 0) AS INT) AS DistanceMeters\nFROM BaseStation bs\nINNER JOIN OutageEvent oe ON bs.StationId = oe.StationId\nWHERE YEAR(oe.StartedAt) = 2026 AND MONTH(oe.StartedAt) = 3\nGROUP BY bs.StationId, bs.StationName, bs.Location\nORDER BY DistanceMeters ASC",
+          "failure": "exec_error",
+          "message": "這個 SQL 執行失敗：執行失敗（錯誤碼 249）。"
+        }
+      ],
+      "falseRejects": 0,
+      "permissionDenied": 0,
+      "modelCalls": 3,
+      "inputTokens": 5290,
+      "outputTokens": 445,
+      "modelMs": 5066,
+      "dbMs": 0,
+      "modelVersion": "claude-haiku-4-5-20251001"
+    }
+  ]
+}
