@@ -59,7 +59,7 @@ public static class PipelineCommand
     }
 
     /// <summary>
-    /// 執行 pipeline 量測。用法：<c>pipeline [--limit N] [--runs N] [--provider P] [--model M] [--fake 文字] [--reader pii]</c>。
+    /// 執行 pipeline 量測。用法：<c>pipeline [--limit N] [--ids J04,A04] [--runs N] [--provider P] [--model M] [--fake 文字] [--reader pii]</c>。
     /// </summary>
     /// <param name="config">已載入的設定；讀取 <c>Model</c> 區段與 <c>ConnectionStrings:Demo</c>、<c>ConnectionStrings:Reader</c>（<c>--reader pii</c> 時改讀 <c>ReaderPii</c>）。</param>
     /// <param name="args">子命令之後的參數；意義同 <c>spike</c>。<c>--fake</c> 的 <c>{gold}</c> 會換成該題標準 SQL，用來不花費用驗證流程與驗證器誤擋。<c>--reader pii</c> 改以 geo_reader_pii 執行（M4 起 geo_reader 讀不到個資欄位，J04 這類題目只有 pii 能執行；只用於 --fake 驗證，模型路徑不使用它）。</param>
@@ -79,6 +79,7 @@ public static class PipelineCommand
 
         var questionsBytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Questions", "questions.json"));
         var questions = JsonSerializer.Deserialize<List<SpikeCommand.Gold>>(questionsBytes, Json)!
+            .Where(q => Opt("--ids") is not { } ids || ids.Split(',').Contains(q.Id, StringComparer.OrdinalIgnoreCase))
             .Take(int.Parse(Opt("--limit") ?? "30")).ToList();
         using var real = fake is null ? ChatClientFactory.Create(options) : null;
         var usage = real is null ? null : new UsageClient(real);

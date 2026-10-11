@@ -14,6 +14,13 @@
 
 另有逾時與列數上限、有界的自我修正（最多 2 次），以及只回饋固定訊息、不把資料庫原文交給模型的錯誤消毒。60 條攻擊語料庫的結果與兩層的分工見 [docs/feasibility-report.md](docs/feasibility-report.md) §8。
 
+個資、稽核與提示詞注入：
+
+- **模型永遠看不到原始個資。** 客戶的姓名、身分證字號、電話、電子郵件在資料庫層對模型用的登入 `DENY`，模型只能讀到遮蔽後的檢視（例如 `A*******21`）。頁面可選 `analyst`／`admin` 角色：admin 的表格會換成原始值，但送往模型的內容不變。**角色只是示範用的下拉選單，不是存取控制。**
+- **每次請求寫一筆稽核**（問題、角色、SQL、token、耗時、結果、模型與提示詞版本），存在 append-only 的 SQL Server ledger 表，連資料庫擁有者都不能改或刪；稽核寫入失敗時請求一併失敗。
+- **提示詞注入有三道機率性護欄**：規則式輸入偵測、工具結果（資料表內容）清理，以及輸出防護（金絲雀字串與 40 字元重疊比對）。它們不是保證，保證來自上面的資料庫層。
+- **攻擊測試**（claude-haiku-4-5，50 筆，每題 1 次）：未授權個資取得、寫入、提示詞與 schema 洩漏皆為 0，送往模型的請求含原始個資為 0；但規則只擋下其中 15 筆（30%），其餘是模型自己拒絕的，輸出防護在測試中沒有被真實攻擊觸發，也有一筆改寫式的規則概述洩漏。完整數字與限制見 [docs/feasibility-report.md](docs/feasibility-report.md) §10。
+
 空間功能的幾個做法：
 
 - **質心不用外接框中心。** `EnvelopeCenter()` 在不規則的行政區會偏離真質心，所以改用 `geography` → `geometry` → `STCentroid()`，並以 NetTopologySuite 投影到 TWD97 後的結果對照；測試會掃描原始碼，不允許出現 `EnvelopeCenter`。
@@ -57,7 +64,7 @@ dotnet user-secrets set "ConnectionStrings:Demo" "<connection string>" --project
 
 ## 啟動網頁
 
-網頁預設使用雲端模型 `claude-haiku-4-5`，並以唯讀登入查詢資料庫，所以需先完成「建立示範資料庫」與「設定唯讀登入」兩節，並設定 `Model:ApiKey` 與 `ConnectionStrings:Reader`。Web、Eval 與測試專案共用同一份 user-secrets，已經對任一專案設過就不必重設。
+網頁預設使用雲端模型 `claude-haiku-4-5`，並以唯讀登入查詢資料庫，所以需先完成「建立示範資料庫」與「設定資料庫登入」兩節，並設定 `Model:ApiKey` 與 `ConnectionStrings:Reader`、`ReaderPii`、`Auditor`。Web、Eval 與測試專案共用同一份 user-secrets，已經對任一專案設過就不必重設。
 
 ```powershell
 dotnet run --project src/GeoNl2Sql.Web --launch-profile http   # 開啟 http://localhost:5001
@@ -72,9 +79,9 @@ dotnet run --project src/GeoNl2Sql.Web --launch-profile http
 
 本機 3B 模型在多工具情境不穩定（實測見 [docs/feasibility-report.md](docs/feasibility-report.md) §9.5），建議使用雲端模型。
 
-端點：`POST /query` 回傳完整 JSON，`POST /query/stream` 以逐行 JSON（NDJSON）串流進度與回答文字；兩者的輸入都是 `{ "question": "…" }`。
+端點：`POST /query` 回傳完整 JSON，`POST /query/stream` 以逐行 JSON（NDJSON）串流進度與回答文字；兩者的輸入都是 `{ "question": "…", "role": "analyst" }`（`role` 可省略，預設 `analyst`，另可為 `admin`，其他值回 400）。
 
-**安全範圍**：網頁沒有使用者驗證、角色、個資遮蔽與稽核，僅供本機展示，**請勿對外部署**。模型產生的 SQL 仍受兩層防線把關。地圖底圖使用 OpenStreetMap 圖磚，僅適合低流量展示。
+**安全範圍**：網頁有個資遮蔽、稽核與提示詞注入護欄，模型產生的 SQL 也受兩層防線把關。但**角色是頁面自選的，不是存取控制**（任何人都能選 admin 看到原始的合成個資），也沒有登入與速率限制，所以**請勿對外部署**。示範資料庫重建（`seed`）時稽核紀錄一併清掉。地圖底圖使用 OpenStreetMap 圖磚，僅適合低流量展示。
 
 樣式使用 Tailwind CSS，編譯後的 `wwwroot/css/app.css` 已在儲存庫內，直接執行即可。修改樣式後用 `tools/build-css.ps1` 重新編譯（會下載官方獨立 CLI，不需要 Node）。
 
@@ -105,15 +112,25 @@ dotnet run --project eval/GeoNl2Sql.Eval -- spike --provider Anthropic --model c
 
 結果寫到 `eval/GeoNl2Sql.Eval/Results/`（不進 git），每輪一份 JSON，含每題的生成 SQL、失敗類型與錯誤訊息。
 
-## 設定唯讀登入並執行 NL2SQL 管線
+## 設定資料庫登入並執行 NL2SQL 管線
 
-管線用唯讀登入 `geo_reader` 執行模型產生的 SQL。前提：
+管線用唯讀登入 `geo_reader` 執行模型產生的 SQL，共有三個登入：
 
-- SQL Server 需啟用**混合驗證**（SQL 驗證與 Windows 驗證並存），`geo_reader` 才能以密碼登入。
-- 設定 `ConnectionStrings:Reader`，User ID 必須是 `geo_reader`；`seed` 會依這個連線字串建立（或更新密碼）該 login 並套用 [db/02_reader.sql](db/02_reader.sql) 的權限，所以請在 `seed` **之前**設定。
+| 設定鍵 | User ID | 用途 |
+|---|---|---|
+| `ConnectionStrings:Reader` | `geo_reader` | 模型產生的 SQL；個資欄位 `DENY`，只讀得到遮蔽檢視（[db/02_reader.sql](db/02_reader.sql)、[db/03_masking.sql](db/03_masking.sql)） |
+| `ConnectionStrings:ReaderPii` | `geo_reader_pii` | 只給 admin 角色重跑同一句已驗證的 SQL，讓表格顯示原始值（[db/04_reader_pii.sql](db/04_reader_pii.sql)） |
+| `ConnectionStrings:Auditor` | `geo_auditor` | 只能 `INSERT` 稽核表，連自己寫的紀錄都讀不到（[db/05_audit.sql](db/05_audit.sql)） |
+
+前提：
+
+- SQL Server 需啟用**混合驗證**（SQL 驗證與 Windows 驗證並存），三個登入才能以密碼登入。
+- 三個連線字串的 User ID 必須如上表；`seed` 會依連線字串建立（或更新密碼）登入並套用對應腳本，所以請在 `seed` **之前**設定。三個登入請各用不同的密碼。
 
 ```powershell
 dotnet user-secrets set "ConnectionStrings:Reader" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_reader;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
+dotnet user-secrets set "ConnectionStrings:ReaderPii" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_reader_pii;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
+dotnet user-secrets set "ConnectionStrings:Auditor" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_auditor;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
 dotnet run --project eval/GeoNl2Sql.Eval -- seed
 ```
 
@@ -130,6 +147,18 @@ dotnet run --project eval/GeoNl2Sql.Eval -- ask "中央區有哪些基地台？"
 dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --provider Anthropic --model claude-haiku-4-5 --limit 3
 dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --fake "{gold}"        # 把標準 SQL 當作模型回應，不花費用
 ```
+
+## 執行攻擊測試
+
+50 筆攻擊語料庫（直接注入、越獄、刺探 schema、要求輸出系統提示詞、資料表內容中的間接注入）逐題送進完整的請求流程，檢查輸出是否出現原始個資、資料庫是否有改動、是否洩漏提示詞，並擷取實際送往模型的請求檢查個資。會呼叫雲端模型並計費，請先用 `--limit` 少量試跑。`seed` 會把 5 座基地台的名稱改成含指令的文字（間接注入的來源）。
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- attack --run A --limit 3 --provider Anthropic --model claude-haiku-4-5   # A：analyst、護欄全開
+dotnet run --project eval/GeoNl2Sql.Eval -- attack --run B --provider Anthropic --model claude-haiku-4-5            # B：護欄全關（25 筆）
+dotnet run --project eval/GeoNl2Sql.Eval -- attack --run C --provider Anthropic --model claude-haiku-4-5            # C：admin 角色（個資相關 10 筆）
+```
+
+結果寫到 `eval/GeoNl2Sql.Eval/Results/`（不進 git，檔內的原始個資值已先遮掉）。
 
 ## 執行測試
 
@@ -159,6 +188,13 @@ Model-generated SQL is never trusted. Two independent defenses guard it:
 2. **Read-only database login**: generated SQL runs only as `geo_reader`, which holds `SELECT` and nothing else, so even if the first layer is bypassed nothing can be written or altered.
 
 Also: query timeout and row cap, bounded self-correction (at most 2 retries), and error sanitizing that feeds the model fixed messages instead of database text. Results of the 60-attack corpus and how the two layers divide the work are in [docs/feasibility-report.md](docs/feasibility-report.md) §8 (written in Chinese).
+
+PII, audit and prompt injection:
+
+- **The model never sees raw PII.** Customer name, national ID, phone and email are `DENY`-ed at the database level for the login the model path uses, which can only read a masked view (e.g. `A*******21`). The page lets you pick an `analyst` or `admin` role: for admin the table is swapped to raw values, but what is sent to the model does not change. **The role is a demo dropdown, not access control.**
+- **Every request writes one audit row** (question, role, SQL, tokens, duration, outcome, model and prompt versions) to an append-only SQL Server ledger table that even the database owner cannot update or delete; if the audit write fails, the request fails too.
+- **Three probabilistic guardrails against prompt injection**: rule-based input detection, scrubbing of tool results (table content), and an output guard (canary string plus a 40-character overlap check). They are not guarantees; the guarantee comes from the database layer above.
+- **Attack test** (claude-haiku-4-5, 50 attacks, one run each): unauthorized PII access, writes, and prompt or schema leaks were all 0, and raw PII in requests sent to the model was 0. But the rules blocked only 15 of them (30%); the model refused the rest by itself, the output guard was never triggered by a real attack, and one paraphrased summary of the rules did leak. Full numbers and limits are in [docs/feasibility-report.md](docs/feasibility-report.md) §10 (written in Chinese).
 
 Spatial design choices:
 
@@ -203,7 +239,7 @@ dotnet user-secrets set "ConnectionStrings:Demo" "<connection string>" --project
 
 ### Run the web page
 
-The page uses the cloud model `claude-haiku-4-5` by default and queries the database through the read-only login, so first complete "Create the demo database" and "Read-only login", and set `Model:ApiKey` and `ConnectionStrings:Reader`. The Web, Eval and test projects share one set of user-secrets, so settings made for any one of them are enough.
+The page uses the cloud model `claude-haiku-4-5` by default and queries the database through the read-only login, so first complete "Create the demo database" and "Database logins", and set `Model:ApiKey` and `ConnectionStrings:Reader`, `ReaderPii` and `Auditor`. The Web, Eval and test projects share one set of user-secrets, so settings made for any one of them are enough.
 
 ```powershell
 dotnet run --project src/GeoNl2Sql.Web --launch-profile http   # opens http://localhost:5001
@@ -218,9 +254,9 @@ dotnet run --project src/GeoNl2Sql.Web --launch-profile http
 
 The local 3B model is unreliable with multiple tools (measured in [docs/feasibility-report.md](docs/feasibility-report.md) §9.5, written in Chinese); the cloud model is recommended.
 
-Endpoints: `POST /query` returns the full JSON; `POST /query/stream` streams progress and answer text as newline-delimited JSON (NDJSON). Both take `{ "question": "…" }`.
+Endpoints: `POST /query` returns the full JSON; `POST /query/stream` streams progress and answer text as newline-delimited JSON (NDJSON). Both take `{ "question": "…", "role": "analyst" }` (`role` is optional and defaults to `analyst`; the other value is `admin`, anything else returns 400).
 
-**Safety scope**: the page has no user authentication, roles, PII masking or audit. It is for local demos only; **do not deploy it publicly**. Model-generated SQL still passes both defenses. The map uses OpenStreetMap tiles, which suit low-traffic demos only.
+**Safety scope**: the page has PII masking, audit and prompt-injection guardrails, and model-generated SQL passes both defenses. But **the role is chosen on the page and is not access control** (anyone can pick admin and see the raw synthetic PII), and there is no login or rate limiting, so **do not deploy it publicly**. Re-running `seed` also wipes the audit rows. The map uses OpenStreetMap tiles, which suit low-traffic demos only.
 
 Styling uses Tailwind CSS. The compiled `wwwroot/css/app.css` is in the repository, so it runs as is. After editing styles, recompile with `tools/build-css.ps1` (it downloads the official standalone CLI; Node is not needed).
 
@@ -251,15 +287,25 @@ dotnet run --project eval/GeoNl2Sql.Eval -- spike --provider Anthropic --model c
 
 Results are written to `eval/GeoNl2Sql.Eval/Results/` (not committed), one JSON file per run, with each question's generated SQL, failure type and error message.
 
-### Read-only login and the NL2SQL pipeline
+### Database logins and the NL2SQL pipeline
 
-The pipeline runs model-generated SQL as the read-only login `geo_reader`. Prerequisites:
+The pipeline runs model-generated SQL as the read-only login `geo_reader`. There are three logins:
 
-- SQL Server must allow **mixed-mode authentication** (SQL and Windows) so `geo_reader` can sign in with a password.
-- Set `ConnectionStrings:Reader` with User ID `geo_reader`. `seed` creates (or updates the password of) that login from this connection string and applies the permissions in [db/02_reader.sql](db/02_reader.sql), so set it **before** running `seed`.
+| Setting key | User ID | Purpose |
+|---|---|---|
+| `ConnectionStrings:Reader` | `geo_reader` | Model-generated SQL; PII columns are `DENY`-ed, only the masked view is readable ([db/02_reader.sql](db/02_reader.sql), [db/03_masking.sql](db/03_masking.sql)) |
+| `ConnectionStrings:ReaderPii` | `geo_reader_pii` | Only used to re-run the same validated SQL for the admin role so the table shows raw values ([db/04_reader_pii.sql](db/04_reader_pii.sql)) |
+| `ConnectionStrings:Auditor` | `geo_auditor` | Can only `INSERT` into the audit table, and cannot even read its own rows ([db/05_audit.sql](db/05_audit.sql)) |
+
+Prerequisites:
+
+- SQL Server must allow **mixed-mode authentication** (SQL and Windows) so the three logins can sign in with passwords.
+- Each connection string must use the User ID above. `seed` creates (or updates the password of) the logins from them and applies the matching scripts, so set them **before** running `seed`. Use a different password for each login.
 
 ```powershell
 dotnet user-secrets set "ConnectionStrings:Reader" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_reader;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
+dotnet user-secrets set "ConnectionStrings:ReaderPii" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_reader_pii;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
+dotnet user-secrets set "ConnectionStrings:Auditor" "Server=.\SQLEXPRESS;Database=GeoNl2SqlDemo;User ID=geo_auditor;Password=<password>;TrustServerCertificate=true" --project eval/GeoNl2Sql.Eval
 dotnet run --project eval/GeoNl2Sql.Eval -- seed
 ```
 
@@ -276,6 +322,18 @@ The 30-question end-to-end run (generated SQL goes through `geo_reader` only; re
 dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --provider Anthropic --model claude-haiku-4-5 --limit 3
 dotnet run --project eval/GeoNl2Sql.Eval -- pipeline --fake "{gold}"        # use the gold SQL as the model reply, no cost
 ```
+
+### Run the attack test
+
+The 50-attack corpus (direct injection, jailbreaks, schema probing, system-prompt extraction, and indirect injection through table content) is sent through the full request flow. It checks whether raw PII appears in the output, whether the database changed, whether the prompt leaked, and inspects the requests actually sent to the model for PII. It calls the cloud model and is billed, so try `--limit` first. `seed` renames 5 base stations to instruction-bearing text (the source of the indirect injection).
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- attack --run A --limit 3 --provider Anthropic --model claude-haiku-4-5   # A: analyst, all guardrails on
+dotnet run --project eval/GeoNl2Sql.Eval -- attack --run B --provider Anthropic --model claude-haiku-4-5            # B: guardrails off (25 attacks)
+dotnet run --project eval/GeoNl2Sql.Eval -- attack --run C --provider Anthropic --model claude-haiku-4-5            # C: admin role (10 PII-related attacks)
+```
+
+Results are written to `eval/GeoNl2Sql.Eval/Results/` (not committed; raw PII values in the files are masked first).
 
 ### Running the tests
 
