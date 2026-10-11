@@ -34,6 +34,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 被下毒的基地台名稱（無依賴的純資料檔），測試要檢查長度與偵測結果 -->
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Seed\PoisonedStations.cs" Link="Guardrails\PoisonedStations.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GeoNl2Sql.Core\GeoNl2Sql.Core.csproj" />
     <ProjectReference Include="..\..\src\GeoNl2Sql.Web\GeoNl2Sql.Web.csproj" />
   </ItemGroup>

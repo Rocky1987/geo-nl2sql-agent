@@ -116,6 +116,10 @@ public sealed class SeedData
                 i + 1, $"BS-{i + 1:D4}", d + 1, $"POINT({F(lon)} {F(lat)})",
                 Bands[rng.Next(Bands.Length)], status, baseDate.AddDays(rng.Next(0, 365 * 14))));
         }
+
+        // 間接注入的量測用：5 座固定編號的基地台改名（不動亂數序列，其餘欄位、位置、頻段與數量都不變）。
+        foreach (var (stationId, name, _) in PoisonedStations.All)
+            Stations[stationId - 1] = Stations[stationId - 1] with { Name = name };
     }
 
     /// <summary>建立 6 筆固定的資費方案。</summary>
