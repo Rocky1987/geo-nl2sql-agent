@@ -13,7 +13,7 @@ using GeoNl2Sql.Eval.Spike;
 namespace GeoNl2Sql.Eval.Pipeline;
 
 /// <summary>
-/// M2 的 <c>pipeline</c> 子命令：30 題逐題呼叫 <see cref="Nl2SqlPipeline"/>（驗證器 + 唯讀執行 + 有界修正），
+/// M2 的 <c>pipeline</c> 子命令：標準集（預設 30 題，<c>--questions</c> 可改用 M5 的 60 題）逐題呼叫 <see cref="Nl2SqlPipeline"/>（驗證器 + 唯讀執行 + 有界修正），
 /// 以 <see cref="ResultComparer"/> 與標準答案比對，結果寫到 eval/GeoNl2Sql.Eval/Results/。
 /// 標準 SQL 走 <c>Demo</c> 連線；生成的 SQL 只走 <c>Reader</c> 連線（geo_reader）。
 /// 另外統計「驗證器誤擋」：被驗證器拒絕、但實際結果與標準答案相同的 SQL（必須為 0）。
@@ -59,10 +59,10 @@ public static class PipelineCommand
     }
 
     /// <summary>
-    /// 執行 pipeline 量測。用法：<c>pipeline [--limit N] [--ids J04,A04] [--runs N] [--provider P] [--model M] [--fake 文字] [--reader pii]</c>。
+    /// 執行 pipeline 量測。用法：<c>pipeline [--questions 檔名] [--limit N] [--ids J04,A04] [--runs N] [--provider P] [--model M] [--fake 文字] [--reader pii]</c>。
     /// </summary>
     /// <param name="config">已載入的設定；讀取 <c>Model</c> 區段與 <c>ConnectionStrings:Demo</c>、<c>ConnectionStrings:Reader</c>（<c>--reader pii</c> 時改讀 <c>ReaderPii</c>）。</param>
-    /// <param name="args">子命令之後的參數；意義同 <c>spike</c>。<c>--fake</c> 的 <c>{gold}</c> 會換成該題標準 SQL，用來不花費用驗證流程與驗證器誤擋。<c>--reader pii</c> 改以 geo_reader_pii 執行（M4 起 geo_reader 讀不到個資欄位，J04 這類題目只有 pii 能執行；只用於 --fake 驗證，模型路徑不使用它）。</param>
+    /// <param name="args">子命令之後的參數；意義同 <c>spike</c>。<c>--questions</c> 指定 Questions/ 下的題集檔（預設 <c>questions.json</c>；M5 的 60 題為 <c>benchmark.json</c>），未給 <c>--limit</c> 時跑全部題目。<c>--fake</c> 的 <c>{gold}</c> 會換成該題標準 SQL，用來不花費用驗證流程與驗證器誤擋。<c>--reader pii</c> 改以 geo_reader_pii 執行（M4 起 geo_reader 讀不到個資欄位，J04 這類題目只有 pii 能執行；只用於 --fake 驗證，模型路徑不使用它）。</param>
     /// <exception cref="InvalidOperationException">缺少連線字串或金鑰。</exception>
     public static async Task RunAsync(IConfiguration config, string[] args)
     {
@@ -77,10 +77,10 @@ public static class PipelineCommand
         var validator = new SqlValidator(DemoSchema.Tables);
         var schema = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "db", "schema-description.md"));
 
-        var questionsBytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Questions", "questions.json"));
+        var questionsBytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Questions", Opt("--questions") ?? "questions.json"));
         var questions = JsonSerializer.Deserialize<List<SpikeCommand.Gold>>(questionsBytes, Json)!
             .Where(q => Opt("--ids") is not { } ids || ids.Split(',').Contains(q.Id, StringComparer.OrdinalIgnoreCase))
-            .Take(int.Parse(Opt("--limit") ?? "30")).ToList();
+            .Take(Opt("--limit") is { } limit ? int.Parse(limit) : int.MaxValue).ToList();
         using var real = fake is null ? ChatClientFactory.Create(options) : null;
         var usage = real is null ? null : new UsageClient(real);
         var resultsDir = Directory.CreateDirectory(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Results"))).FullName;

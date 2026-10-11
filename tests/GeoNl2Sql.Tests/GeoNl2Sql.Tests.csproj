@@ -30,6 +30,8 @@
     <None Include="..\..\eval\GeoNl2Sql.Eval\Questions\tools.json" Link="Guardrails\tools.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\eval\GeoNl2Sql.Eval\Questions\attacks.json" Link="Guardrails\attacks.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\eval\GeoNl2Sql.Eval\Questions\benign-prompts.json" Link="Guardrails\benign-prompts.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- M5 的 60 題標準集（原 30 題＋新 30 題） -->
+    <None Include="..\..\eval\GeoNl2Sql.Eval\Questions\benchmark.json" Link="Eval\benchmark.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- PromptBuilder 的快照測試：schema 原文與 M1 量測時的 system 訊息 -->
     <None Include="..\..\db\schema-description.md" Link="Prompting\schema-description.md" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Prompting\*.txt" CopyToOutputDirectory="PreserveNewest" />

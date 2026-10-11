@@ -134,7 +134,7 @@ public class ReadOnlyBoundaryTests
     /// <summary>把結果集轉成可比對的字串列；不在意順序時排序。</summary>
     /// <param name="result">查詢結果。</param>
     /// <param name="ordered">是否保留原順序。</param>
-    private static IEnumerable<string> Normalize(SqlQueryResult result, bool ordered)
+    internal static IEnumerable<string> Normalize(SqlQueryResult result, bool ordered)
     {
         var rows = result.Rows.Select(r => string.Join('\u001f', r.Select(c => c switch
         {
