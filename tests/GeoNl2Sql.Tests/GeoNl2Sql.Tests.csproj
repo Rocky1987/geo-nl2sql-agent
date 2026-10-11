@@ -42,6 +42,12 @@
     <Compile Include="..\..\eval\GeoNl2Sql.Eval\Seed\PoisonedStations.cs" Link="Guardrails\PoisonedStations.cs" />
     <!-- 記錄模型請求的包裝用戶端（只有評估程式與測試使用）：H3 的資料庫層驗證要用 -->
     <Compile Include="..\..\eval\GeoNl2Sql.Eval\Attack\RecordingChatClient.cs" Link="Database\RecordingChatClient.cs" />
+    <!-- M5 評估的計分、快取與報告（離線測試；EvalCommand 需要資料庫與模型，不連結） -->
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Common\ResultComparer.cs" Link="Eval\Linked\ResultComparer.cs" />
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Common\BenchmarkRunner.cs" Link="Eval\Linked\BenchmarkRunner.cs" />
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Common\CachingChatClient.cs" Link="Eval\Linked\CachingChatClient.cs" />
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Benchmark\BenchmarkResults.cs" Link="Eval\Linked\BenchmarkResults.cs" />
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Benchmark\ReportCommand.cs" Link="Eval\Linked\ReportCommand.cs" />
   </ItemGroup>
 
   <ItemGroup>

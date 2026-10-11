@@ -7,14 +7,13 @@ using GeoNl2Sql.Core.Guardrails;
 using GeoNl2Sql.Core.Nl2Sql;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Data.SqlClient;
 using GeoNl2Sql.Eval.Spike;
 
 namespace GeoNl2Sql.Eval.Pipeline;
 
 /// <summary>
 /// M2 的 <c>pipeline</c> 子命令：標準集（預設 30 題，<c>--questions</c> 可改用 M5 的 60 題）逐題呼叫 <see cref="Nl2SqlPipeline"/>（驗證器 + 唯讀執行 + 有界修正），
-/// 以 <see cref="ResultComparer"/> 與標準答案比對，結果寫到 eval/GeoNl2Sql.Eval/Results/。
+/// 以 <see cref="ResultComparer"/> 與標準答案比對（單題的執行與計分由 <see cref="BenchmarkRunner"/> 負責，與 <c>eval</c> 共用），結果寫到 eval/GeoNl2Sql.Eval/Results/。
 /// 標準 SQL 走 <c>Demo</c> 連線；生成的 SQL 只走 <c>Reader</c> 連線（geo_reader）。
 /// 另外統計「驗證器誤擋」：被驗證器拒絕、但實際結果與標準答案相同的 SQL（必須為 0）。
 /// </summary>
@@ -74,8 +73,8 @@ public static class PipelineCommand
         var reader = config.GetConnectionString(readerKey) ?? throw new InvalidOperationException($"找不到設定 ConnectionStrings:{readerKey}。");
         var options = ReadModelOptions(config, Opt);
         var executor = new ReadOnlySqlExecutor(reader, config.GetSection(QueryLimits.SectionName).Get<QueryLimits>() ?? new QueryLimits());
-        var validator = new SqlValidator(DemoSchema.Tables);
         var schema = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "db", "schema-description.md"));
+        var runner = new BenchmarkRunner(new SqlValidator(DemoSchema.Tables), schema, executor.ExecuteAsync);
 
         var questionsBytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Questions", Opt("--questions") ?? "questions.json"));
         var questions = JsonSerializer.Deserialize<List<SpikeCommand.Gold>>(questionsBytes, Json)!
@@ -96,22 +95,18 @@ public static class PipelineCommand
             {
                 var gold = await SpikeCommand.QueryAsync(demo, q.GoldSql, asReader: false);
                 IChatClient client = fake is null ? usage! : new FixedChatClient(Regex.Replace(fake.Replace("{gold}", q.GoldSql), @"^", "```sql\n") + "\n```");
-                var pipeline = new Nl2SqlPipeline(client, validator, executor.ExecuteAsync, schema);
-                Nl2SqlResult result;
-                try { result = await pipeline.AskAsync(q.Question); }
-                catch (HttpRequestException ex)
+                var outcome = await runner.RunAsync(client, q.Question, gold, q.Ordered);
+                if (outcome.Result is not { } result)
                 {
                     // 本機 Ollama 偶爾對特定請求回 500：記為失敗，其餘題目繼續跑。
-                    Console.WriteLine($"[{run}] {q.Id} model_error {ex.Message}");
-                    items.Add(new { q.Id, q.Category, Correct = false, Error = "model_error", ex.Message });
+                    Console.WriteLine($"[{run}] {q.Id} model_error {outcome.ModelError}");
+                    items.Add(new { q.Id, q.Category, Correct = false, Error = "model_error", Message = outcome.ModelError });
                     continue;
                 }
 
-                var isCorrect = result.Success && ResultComparer.SameResult(gold, ResultComparer.Normalize(result.Data!.Rows), q.Ordered);
-                var firstTry = isCorrect && result.Attempts.Count == 1;
-                var rejectedButCorrect = 0;
-                foreach (var a in result.Attempts.Where(a => a.Failure == "rejected"))
-                    if (await IsCorrectViaReaderAsync(executor, a.Sql!, gold, q.Ordered)) rejectedButCorrect++;
+                var isCorrect = outcome.Correct;
+                var firstTry = outcome.FirstCorrect;
+                var rejectedButCorrect = outcome.FalseRejects;
                 if (isCorrect) { correct++; byCategory[q.Category]++; }
                 if (firstTry) correctFirstTry++;
                 falseRejects += rejectedButCorrect;
@@ -145,23 +140,5 @@ public static class PipelineCommand
         if (opt("--provider") is { } p) options.Provider = Enum.Parse<ModelProvider>(p, true);
         if (opt("--model") is { } m) options.ModelId = m;
         return options;
-    }
-
-    /// <summary>
-    /// 把被驗證器拒絕的 SQL 改以唯讀 login 執行，判斷它是否其實就是正確答案（誤擋）。
-    /// 只用 geo_reader 執行（第二層防線），所以即使是危險語句也只會被資料庫拒絕；執行失敗一律視為「不是正確答案」。
-    /// </summary>
-    /// <param name="executor">唯讀執行器。</param>
-    /// <param name="sql">被拒絕的 SQL。</param>
-    /// <param name="gold">標準結果。</param>
-    /// <param name="ordered">是否比對列順序。</param>
-    private static async Task<bool> IsCorrectViaReaderAsync(ReadOnlySqlExecutor executor, string sql, List<object?[]> gold, bool ordered)
-    {
-        try
-        {
-            var r = await executor.ExecuteAsync(sql);
-            return !r.Truncated && ResultComparer.SameResult(gold, ResultComparer.Normalize(r.Rows), ordered);
-        }
-        catch (SqlException) { return false; }
     }
 }

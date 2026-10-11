@@ -61,6 +61,23 @@ public class Nl2SqlPipelineTests
         Assert.Single(result.Attempts);
     }
 
+    /// <summary>
+    /// 第 1 次請求只含 system 訊息與問題，與之後允許修正幾次無關。M5 的「無自我修正」直接取第 1 次嘗試的結果，
+    /// 依據就是這一點（docs/m5-implementation-plan.md §2.2）。
+    /// </summary>
+    [Fact]
+    public async Task FirstRequest_ContainsOnlySystemPromptAndQuestion()
+    {
+        var client = new ScriptedChatClient("抱歉，我不知道。", Block("SELECT 1 AS n"));
+        var pipeline = Create(client, []);
+
+        await pipeline.AskAsync("中央區有幾座基地台？");
+
+        Assert.Equal([ChatRole.System, ChatRole.User], client.Calls[0].Select(m => m.Role));
+        Assert.Equal(pipeline.SystemPrompt, client.Calls[0][0].Text);
+        Assert.Equal("中央區有幾座基地台？", client.Calls[0][1].Text);
+    }
+
     /// <summary>模型永遠回 DROP TABLE：恰好生成 3 次，執行器從未被呼叫，不丟例外。</summary>
     [Fact]
     public async Task AlwaysDangerous_StopsAfterThreeGenerations_AndNeverExecutes()

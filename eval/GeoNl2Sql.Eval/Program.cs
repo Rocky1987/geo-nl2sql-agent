@@ -1,6 +1,7 @@
 using GeoNl2Sql.Core;
 using GeoNl2Sql.Eval.Agent;
 using GeoNl2Sql.Eval.Attack;
+using GeoNl2Sql.Eval.Benchmark;
 using GeoNl2Sql.Eval.Hello;
 using GeoNl2Sql.Eval.Pipeline;
 using GeoNl2Sql.Eval.Seed;
@@ -29,6 +30,11 @@ using Microsoft.Extensions.Configuration;
 //   attack --run A|B|C [--limit N] [--ids D01,I03] [--provider P] [--model M]
 //                                M4 提示詞注入攻擊測試（attacks.json 50 筆；A 全開、B 護欄全關 25 筆、C admin 約 10 筆），需要三個連線字串
 //                                範例：-- attack --run A --limit 3                前 3 筆（先確認 token 用量）
+//   eval [--models cloud,local] [--runs 3] [--limit N] [--ids S09,J09] [--replay | --fresh]
+//                                M5 評估（benchmark.json 60 題；模型回應快取在 eval/results/m5/cache/），跑完自動執行 report
+//                                範例：-- eval --models cloud --runs 1 --limit 3   試跑 3 題（先確認 token 用量）
+//                                      -- eval --replay                          只用快取重現公布的數字，不需要金鑰與 Ollama
+//   report [--dir 目錄]          由結果檔產生 summary.json、summary.md、accuracy.svg（預設 eval/results/m5/）
 // 設定來源優先序（後者覆蓋前者）：appsettings.json → user-secrets → 環境變數 → 命令列參數（僅 hello 的前兩個參數）。
 var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: true)
@@ -60,8 +66,12 @@ switch (args.FirstOrDefault()?.ToLowerInvariant())
     case "agent":
         await AgentCommand.RunAsync(config, args[1..]);
         break;
+    case "eval":
+        return await EvalCommand.RunAsync(config, args[1..]);
+    case "report":
+        return await ReportCommand.RunAsync(args[1..]);
     default:
-        Console.WriteLine("用法：dotnet run --project eval/GeoNl2Sql.Eval -- <hello|seed|spike|pipeline|ask|agent|attack> [參數...]");
+        Console.WriteLine("用法：dotnet run --project eval/GeoNl2Sql.Eval -- <hello|seed|spike|pipeline|ask|agent|attack|eval|report> [參數...]");
         return 1;
 }
 return 0;
