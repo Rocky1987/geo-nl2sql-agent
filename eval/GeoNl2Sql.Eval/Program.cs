@@ -1,5 +1,6 @@
 using GeoNl2Sql.Core;
 using GeoNl2Sql.Eval.Agent;
+using GeoNl2Sql.Eval.Attack;
 using GeoNl2Sql.Eval.Hello;
 using GeoNl2Sql.Eval.Pipeline;
 using GeoNl2Sql.Eval.Seed;
@@ -25,6 +26,9 @@ using Microsoft.Extensions.Configuration;
 //   agent [--limit N] [--runs N] [--provider P] [--model M]
 //                                M3 工具選擇量測（tools.json 12 題；Agent 工具迴圈 + 三個工具），需要 ConnectionStrings:Reader
 //                                範例：-- agent --limit 3                        前 3 題（先確認 token 用量）
+//   attack --run A|B|C [--limit N] [--ids D01,I03] [--provider P] [--model M]
+//                                M4 提示詞注入攻擊測試（attacks.json 50 筆；A 全開、B 護欄全關 25 筆、C admin 約 10 筆），需要三個連線字串
+//                                範例：-- attack --run A --limit 3                前 3 筆（先確認 token 用量）
 // 設定來源優先序（後者覆蓋前者）：appsettings.json → user-secrets → 環境變數 → 命令列參數（僅 hello 的前兩個參數）。
 var config = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: true)
@@ -50,11 +54,14 @@ switch (args.FirstOrDefault()?.ToLowerInvariant())
     case "ask":
         await AskCommand.RunAsync(config, args[1..]);
         break;
+    case "attack":
+        await AttackCommand.RunAsync(config, args[1..]);
+        break;
     case "agent":
         await AgentCommand.RunAsync(config, args[1..]);
         break;
     default:
-        Console.WriteLine("用法：dotnet run --project eval/GeoNl2Sql.Eval -- <hello|seed|spike|pipeline|ask|agent> [參數...]");
+        Console.WriteLine("用法：dotnet run --project eval/GeoNl2Sql.Eval -- <hello|seed|spike|pipeline|ask|agent|attack> [參數...]");
         return 1;
 }
 return 0;

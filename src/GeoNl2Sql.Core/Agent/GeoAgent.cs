@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using GeoNl2Sql.Core.Guardrails;
 using GeoNl2Sql.Core.Nl2Sql;
 using GeoNl2Sql.Core.Spatial;
 using Microsoft.Agents.AI;
@@ -92,6 +93,7 @@ public sealed class GeoAgent
     private readonly Nl2SqlPipeline _pipeline;
     private readonly SpatialQueries _spatial;
     private readonly AgentOptions _options;
+    private readonly GuardrailOptions _guardrails;
 
     /// <summary>
     /// 建立 Agent。
@@ -100,12 +102,14 @@ public sealed class GeoAgent
     /// <param name="pipeline">自然語言轉 SQL 管線。</param>
     /// <param name="spatial">質心與緩衝區查詢。</param>
     /// <param name="options">輪數上限等設定。</param>
-    public GeoAgent(IChatClient client, Nl2SqlPipeline pipeline, SpatialQueries spatial, AgentOptions options)
+    /// <param name="guardrails">護欄開關（工具結果清理）；省略為全開。只有評估程式的對照組會關閉。</param>
+    public GeoAgent(IChatClient client, Nl2SqlPipeline pipeline, SpatialQueries spatial, AgentOptions options, GuardrailOptions? guardrails = null)
     {
         _client = client;
         _pipeline = pipeline;
         _spatial = spatial;
         _options = options;
+        _guardrails = guardrails ?? GuardrailOptions.Default;
     }
 
     /// <summary>不得洩漏給使用者的提示詞文字：Agent 指示（含金絲雀規則的樣板）與 NL2SQL 的 system 訊息。輸出防護用它建立逐字重疊索引。</summary>
@@ -176,7 +180,7 @@ public sealed class GeoAgent
     /// <summary>建立本次請求專用的 Agent 與工具集（含獨立的地圖資料與工具輪數上限）。</summary>
     private (ChatClientAgent Agent, GeoTools Tools) CreateAgent(string? canary)
     {
-        var tools = new GeoTools(_pipeline, _spatial, new MapResult());
+        var tools = new GeoTools(_pipeline, _spatial, new MapResult(), _guardrails.ScrubToolResults);
         var looping = new FunctionInvokingChatClient(_client) { MaximumIterationsPerRequest = _options.MaxToolRounds };
         var agent = new ChatClientAgent(looping, new ChatClientAgentOptions
         {

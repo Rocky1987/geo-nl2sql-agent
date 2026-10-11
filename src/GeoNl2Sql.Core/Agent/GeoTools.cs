@@ -33,6 +33,7 @@ public sealed class GeoTools
     private readonly object _gate = new();
     private readonly List<ToolCall> _calls = [];
     private int _scrubbed;
+    private readonly bool _scrubEnabled;
 
     /// <summary>
     /// 建立本次請求的工具集。
@@ -40,11 +41,13 @@ public sealed class GeoTools
     /// <param name="pipeline">自然語言轉 SQL 管線（M2，不變）。</param>
     /// <param name="spatial">質心與緩衝區的固定模板查詢。</param>
     /// <param name="map">本次請求的地圖旁路。</param>
-    public GeoTools(Nl2SqlPipeline pipeline, SpatialQueries spatial, MapResult map)
+    /// <param name="scrubToolResults">是否清理交給模型的疑似指令字串；只有評估程式的對照組會設為 false。</param>
+    public GeoTools(Nl2SqlPipeline pipeline, SpatialQueries spatial, MapResult map, bool scrubToolResults = true)
     {
         _pipeline = pipeline;
         _spatial = spatial;
         Map = map;
+        _scrubEnabled = scrubToolResults;
     }
 
     /// <summary>本次請求的地圖旁路。</summary>
@@ -214,7 +217,7 @@ public sealed class GeoTools
     /// <returns>原字串，或 <see cref="PromptInjectionDetector.ScrubbedPlaceholder"/>。</returns>
     private string Scrub(string value)
     {
-        if (PromptInjectionDetector.Detect(value) is null) return value;
+        if (!_scrubEnabled || PromptInjectionDetector.Detect(value) is null) return value;
         Interlocked.Increment(ref _scrubbed);
         return PromptInjectionDetector.ScrubbedPlaceholder;
     }

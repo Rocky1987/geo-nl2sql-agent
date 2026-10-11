@@ -38,6 +38,8 @@
   <ItemGroup>
     <!-- 被下毒的基地台名稱（無依賴的純資料檔），測試要檢查長度與偵測結果 -->
     <Compile Include="..\..\eval\GeoNl2Sql.Eval\Seed\PoisonedStations.cs" Link="Guardrails\PoisonedStations.cs" />
+    <!-- 記錄模型請求的包裝用戶端（只有評估程式與測試使用）：H3 的資料庫層驗證要用 -->
+    <Compile Include="..\..\eval\GeoNl2Sql.Eval\Attack\RecordingChatClient.cs" Link="Database\RecordingChatClient.cs" />
   </ItemGroup>
 
   <ItemGroup>

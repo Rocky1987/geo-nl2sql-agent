@@ -38,6 +38,7 @@ public sealed class QueryService
     private readonly ModelOptions _model;
     private readonly ILogger? _logger;
     private readonly OutputLeakGuard _guard;
+    private readonly GuardrailOptions _guardrails;
 
     /// <summary>
     /// 建立服務。
@@ -47,9 +48,11 @@ public sealed class QueryService
     /// <param name="audit">稽核寫入器。要累計 token 用量，Agent 的 <see cref="Microsoft.Extensions.AI.IChatClient"/> 須是 <see cref="UsageTrackingChatClient"/>。</param>
     /// <param name="model">模型設定，只用來在稽核紀錄記下供應商與模型。</param>
     /// <param name="logger">旁路重跑失敗、稽核寫入失敗時記錄用；可省略。</param>
+    /// <param name="guardrails">護欄開關（輸入偵測、輸出防護）；省略為全開。只有評估程式的對照組會關閉，Web 不讀設定。</param>
     public QueryService(GeoAgent agent, Func<string, CancellationToken, Task<SqlQueryResult>> piiExecute, IAuditWriter audit, ModelOptions model,
-        ILogger? logger = null)
+        ILogger? logger = null, GuardrailOptions? guardrails = null)
     {
+        _guardrails = guardrails ?? GuardrailOptions.Default;
         _agent = agent;
         _piiExecute = piiExecute;
         _audit = audit;
@@ -70,13 +73,13 @@ public sealed class QueryService
     {
         var scope = UsageScope.Begin();
         var started = new Started();
-        if (PromptInjectionDetector.Detect(question) is { } rule)
+        if (_guardrails.InputDetection && PromptInjectionDetector.Detect(question) is { } rule)
         {
             await WriteAuditAsync(Base(question, role, AuditOutcome.BlockedInput, scope, started) with { GuardRule = rule });
             return Blocked(PromptInjectionDetector.RejectMessage);
         }
 
-        var canary = OutputLeakGuard.NewCanary();
+        var canary = _guardrails.OutputGuard ? OutputLeakGuard.NewCanary() : null;
         GeoAgentResult result;
         try
         {
@@ -93,7 +96,7 @@ public sealed class QueryService
             throw;
         }
 
-        if (LeakReason(result, canary) is { } leak)
+        if (canary is not null && LeakReason(result, canary) is { } leak)
         {
             await WriteAuditAsync(Build(question, role, result, scope, started, AuditOutcome.BlockedOutput, leak));
             return Blocked(OutputLeakGuard.BlockedMessage);
@@ -120,15 +123,15 @@ public sealed class QueryService
         string question, UserRole role, UsageScope scope, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var started = new Started();
-        if (PromptInjectionDetector.Detect(question) is { } rule)
+        if (_guardrails.InputDetection && PromptInjectionDetector.Detect(question) is { } rule)
         {
             await WriteAuditAsync(Base(question, role, AuditOutcome.BlockedInput, scope, started) with { GuardRule = rule });
             yield return new Completed(Blocked(PromptInjectionDetector.RejectMessage));
             yield break;
         }
 
-        var canary = OutputLeakGuard.NewCanary();
-        var filter = _guard.CreateStream(canary);
+        var canary = _guardrails.OutputGuard ? OutputLeakGuard.NewCanary() : null;
+        var filter = canary is null ? null : _guard.CreateStream(canary);
         await using var events = _agent.RunStreamingAsync(question, cancellationToken, canary).GetAsyncEnumerator(cancellationToken);
         while (true)
         {
@@ -141,19 +144,19 @@ public sealed class QueryService
                 switch (events.Current)
                 {
                     case AnswerDelta delta:
-                        Take(filter.Push(delta.Text), outgoing, ref leak);
+                        Take(filter?.Push(delta.Text) ?? new OutputLeakGuard.StreamStep(delta.Text, null), outgoing, ref leak);
                         break;
                     case ToolStarted tool:
                         // 工具呼叫前的旁白到此結束：把保留的尾端檢查完並放行，下一段回答從頭開始。
-                        Take(filter.Complete(), outgoing, ref leak);
+                        Take(filter?.Complete() ?? new OutputLeakGuard.StreamStep("", null), outgoing, ref leak);
                         outgoing.Add(tool);
                         break;
                     case Completed completed:
-                        Take(filter.Complete(), outgoing, ref leak);
+                        Take(filter?.Complete() ?? new OutputLeakGuard.StreamStep("", null), outgoing, ref leak);
                         final = role == UserRole.Admin
                             ? await RevealAsync(completed.Result, _piiExecute, _logger, cancellationToken)
                             : completed.Result;
-                        leak ??= LeakReason(final, canary);
+                        if (canary is not null) leak ??= LeakReason(final, canary);
                         break;
                     default:
                         outgoing.Add(events.Current);
