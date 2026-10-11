@@ -21,6 +21,8 @@
 - **提示詞注入有三道機率性護欄**：規則式輸入偵測、工具結果（資料表內容）清理，以及輸出防護（金絲雀字串與 40 字元重疊比對）。它們不是保證，保證來自上面的資料庫層。
 - **攻擊測試**（claude-haiku-4-5，50 筆，每題 1 次）：未授權個資取得、寫入、提示詞與 schema 洩漏皆為 0，送往模型的請求含原始個資為 0；但規則只擋下其中 15 筆（30%），其餘是模型自己拒絕的，輸出防護在測試中沒有被真實攻擊觸發，也有一筆改寫式的規則概述洩漏。完整數字與限制見 [docs/feasibility-report.md](docs/feasibility-report.md) §10。
 
+**評估結果**（60 題、每個模型 3 輪，執行結果比對）：雲端 `claude-haiku-4-5` 55／60，本機 `qwen2.5:3b` 22／60；自我修正對兩者幾乎沒有幫助。數字、失敗案例與重現方式見[評估結果](#評估結果)。
+
 空間功能的幾個做法：
 
 - **質心不用外接框中心。** `EnvelopeCenter()` 在不規則的行政區會偏離真質心，所以改用 `geography` → `geometry` → `STCentroid()`，並以 NetTopologySuite 投影到 TWD97 後的結果對照；測試會掃描原始碼，不允許出現 `EnvelopeCenter`。
@@ -160,6 +162,59 @@ dotnet run --project eval/GeoNl2Sql.Eval -- attack --run C --provider Anthropic 
 
 結果寫到 `eval/GeoNl2Sql.Eval/Results/`（不進 git，檔內的原始個資值已先遮掉）。
 
+## 評估結果
+
+60 題標準集（single、join、aggregate、spatial 各 15 題，附難度標籤），以**執行結果比對**計分，不比 SQL 文字。前 30 題是早期就公開的題目；後 30 題在任何模型看到之前就凍結（tag `m5-questions-frozen`），偏難，所以兩組分開列。每個模型跑 3 輪，溫度 0，題目、標準答案與每次模型回應都在 [eval/results/m5/](eval/results/m5/)。
+
+![兩個模型有無自我修正的準確率](eval/results/m5/accuracy.svg)
+
+| 模型 | 無修正 | 有修正 | 前 30 題（有修正） | 後 30 題（有修正） |
+|---|---|---|---|---|
+| 雲端 `claude-haiku-4-5` | 55／60（91.7%） | 55／60（91.7%） | 30／30 | 25／30 |
+| 本機 `qwen2.5:3b` | 21／60（35.0%） | 22／60（36.7%） | 14／30 | 8／30 |
+
+| 難度（題數） | 雲端 | 本機 |
+|---|---|---|
+| 易（21） | 21 | 12 |
+| 中（21） | 20 | 7 |
+| 難（18） | 14 | 3 |
+
+怎麼讀這些數字：
+
+- **「無修正」是同一次執行的第 1 次嘗試**，不是另外跑的一輪，所以兩欄是成對比較。自我修正只處理看得出的失敗（抽不到 SQL、被驗證器拒絕、執行錯誤）；SQL 能執行但結果不對時管線不知道，不會修正。
+- **修正的幫助很小。** 雲端 0 題被救回，本機只有 1 題（`G11`，3 輪都是）。本機第 1 次嘗試有 22 題屬於可修正的失敗，修正之後仍有 21 題沒救回。
+- **三輪逐題完全相同（變異 0）。** 這表示溫度 0 下可以重現，不代表換個說法提問仍然穩健。
+- **樣本很小：1 題約等於 1.7 個百分點**，差 1～2 題不要下結論。
+- 新題由 Claude 起草、作者逐題審閱；受測的雲端模型是同一個模型家族，題目的說法可能比較合它的習慣，審閱只能減緩、不能排除。
+- 個資欄位的題目，計分時把最終那句 SQL 以 `geo_reader_pii` 重跑再比對，避免把遮蔽誤算成 SQL 寫錯。兩個模型在 3 輪中都沒有寫 `dbo.Customer` 而被權限拒絕過，驗證器也沒有誤擋任何正確的 SQL。
+
+**雲端失敗的 5 題（都在後 30 題，3 輪相同）：**
+
+| 題 | 問題 | 模型的做法 | 錯在哪裡 |
+|---|---|---|---|
+| A11 | 各方案平均綁約幾個月（小數第 1 位） | `AVG(DATEDIFF(MONTH, …))` | `DATEDIFF` 回傳整數，平均被取整成 24，正確是 24.3 |
+| A13 | 2 月到 9 月每月與上月的差額 | 在 `WHERE` 先濾掉 1 月，再用 `LAG` | 2 月沒有前一筆，差額成了 NULL |
+| G10 | 每 100 平方公里有幾座基地台 | `COUNT * 1000000 / STArea()` | 單位換算差兩個數量級 |
+| G15 | 3 月斷過線的站中最近的 3 座 | `GROUP BY` 含 `geography` 欄位 | `geography` 不能用於 `GROUP BY`（執行錯誤），3 次嘗試都沒修好 |
+| J14 | 當天有兩筆以上有效訂閱的企業客戶 | 把子查詢放進 `COUNT` 的參數 | 聚合函式裡包了聚合，3 次嘗試都沒修好 |
+
+**本機模型的失敗**主要是語言與方言：寫出 MySQL 的 `LIMIT`、在 CTE 裡直接 `ORDER BY`、別名寫成 `@point`（這三種驗證器都因語法無法解析而拒絕）、把 `STDistance` 當成獨立函式、憑空編出「政府機關方案」這種不存在的方案名、把「2 公里」寫成 `<= 200`。這些多半不是回饋一句固定的錯誤訊息就能修好的。
+
+**延遲**（只算 NL2SQL 管線，不含網頁請求另外的 Agent 呼叫，實際耗時會更長）：每題 p50／p95，雲端 1.4／3.0 秒，本機 2.6／13.6 秒（本機為 CPU 推論，視硬體而定）。
+
+**費用**：雲端 3 輪共 192 次呼叫、約 29.7 萬輸入與 2 萬輸出 token（約 0.4 美元）。
+
+不需要金鑰與 Ollama 也能重現這些數字：模型回應已存進快取，只需種子資料庫。
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- eval --replay                # 只用快取，0 次模型呼叫，並與公布的結果逐題比對
+dotnet run --project eval/GeoNl2Sql.Eval -- eval --models cloud --runs 1 --limit 3   # 實際呼叫雲端（計費）；先少量試跑
+dotnet run --project eval/GeoNl2Sql.Eval -- eval --fresh                 # 忽略快取重新量測，結果另存，用來檢查同名模型是否被更新
+dotnet run --project eval/GeoNl2Sql.Eval -- report                       # 由結果檔重新產生 summary.md／accuracy.svg
+```
+
+完整的表格（依類別、失敗類型、各輪差異）見 [eval/results/m5/summary.md](eval/results/m5/summary.md)。
+
 ## 執行測試
 
 ```powershell
@@ -195,6 +250,8 @@ PII, audit and prompt injection:
 - **Every request writes one audit row** (question, role, SQL, tokens, duration, outcome, model and prompt versions) to an append-only SQL Server ledger table that even the database owner cannot update or delete; if the audit write fails, the request fails too.
 - **Three probabilistic guardrails against prompt injection**: rule-based input detection, scrubbing of tool results (table content), and an output guard (canary string plus a 40-character overlap check). They are not guarantees; the guarantee comes from the database layer above.
 - **Attack test** (claude-haiku-4-5, 50 attacks, one run each): unauthorized PII access, writes, and prompt or schema leaks were all 0, and raw PII in requests sent to the model was 0. But the rules blocked only 15 of them (30%); the model refused the rest by itself, the output guard was never triggered by a real attack, and one paraphrased summary of the rules did leak. Full numbers and limits are in [docs/feasibility-report.md](docs/feasibility-report.md) §10 (written in Chinese).
+
+**Evaluation** (60 questions, 3 runs per model, scored by execution result): cloud `claude-haiku-4-5` 55/60, local `qwen2.5:3b` 22/60; self-correction barely helps either model. Numbers, failure cases and how to reproduce them are in [Evaluation results](#evaluation-results).
 
 Spatial design choices:
 
@@ -334,6 +391,59 @@ dotnet run --project eval/GeoNl2Sql.Eval -- attack --run C --provider Anthropic 
 ```
 
 Results are written to `eval/GeoNl2Sql.Eval/Results/` (not committed; raw PII values in the files are masked first).
+
+### Evaluation results
+
+A 60-question benchmark (15 each of single, join, aggregate and spatial, with difficulty labels), scored by **comparing execution results**, not SQL text. The first 30 questions were published earlier; the last 30 were frozen before any model saw them (tag `m5-questions-frozen`) and are harder, so the two groups are reported separately. Each model ran 3 times at temperature 0. The questions, gold SQL and every model response are in [eval/results/m5/](eval/results/m5/).
+
+![Accuracy of both models with and without self-correction](eval/results/m5/accuracy.svg)
+
+| Model | No correction | With correction | First 30 (with correction) | Last 30 (with correction) |
+|---|---|---|---|---|
+| Cloud `claude-haiku-4-5` | 55/60 (91.7%) | 55/60 (91.7%) | 30/30 | 25/30 |
+| Local `qwen2.5:3b` | 21/60 (35.0%) | 22/60 (36.7%) | 14/30 | 8/30 |
+
+| Difficulty (questions) | Cloud | Local |
+|---|---|---|
+| Easy (21) | 21 | 12 |
+| Medium (21) | 20 | 7 |
+| Hard (18) | 14 | 3 |
+
+How to read the numbers:
+
+- **"No correction" is the first attempt of the same run**, not a separate run, so the two columns are a paired comparison. Self-correction only handles failures the pipeline can see (no SQL found, rejected by the validator, execution error); when the SQL runs but returns the wrong result, the pipeline cannot tell and does not retry.
+- **Correction helps very little.** It rescued 0 questions for the cloud model and 1 for the local model (`G11`, in all 3 runs). The local model had 22 correctable first-attempt failures, and 21 of them stayed wrong after correction.
+- **All three runs are identical question by question (zero variance).** That means results are reproducible at temperature 0; it does not mean the model is robust to rephrasing.
+- **The sample is small: one question is about 1.7 percentage points.** Do not draw conclusions from a difference of 1 or 2 questions.
+- The new questions were drafted by Claude and reviewed one by one by the author. The cloud model under test is from the same model family, so the phrasing may suit it better than it would another model; review reduces this but cannot rule it out.
+- For questions touching PII columns, the final SQL is re-run as `geo_reader_pii` before comparison, so masking is not counted as a SQL mistake. Across 3 runs neither model wrote `dbo.Customer` and got denied, and the validator rejected no correct SQL.
+
+**The 5 cloud failures (all in the last 30, identical in all 3 runs):**
+
+| Question | Task | What the model did | What went wrong |
+|---|---|---|---|
+| A11 | Average contract length per plan, in months (1 decimal) | `AVG(DATEDIFF(MONTH, …))` | `DATEDIFF` returns an integer, so the average was truncated to 24; the correct value is 24.3 |
+| A13 | Month-over-month change in outage minutes, Feb to Sep | Filtered out January in `WHERE`, then `LAG` | February had no previous row, so its difference became NULL |
+| G10 | Stations per 100 km² | `COUNT * 1000000 / STArea()` | The unit conversion was off by two orders of magnitude |
+| G15 | 3 nearest stations that had an outage in March | `GROUP BY` including a `geography` column | `geography` cannot be used in `GROUP BY` (execution error); all 3 attempts failed |
+| J14 | Enterprise customers with two or more active subscriptions on a date | A subquery inside `COUNT` | An aggregate wrapped around an aggregate; all 3 attempts failed |
+
+**The local model's failures** are mostly language and dialect: MySQL's `LIMIT`, `ORDER BY` directly inside a CTE, an alias written as `@point` (the validator rejected all three as unparseable), `STDistance` called as a standalone function, invented names such as a "government plan" that does not exist, and "2 km" written as `<= 200`. A fixed error message is rarely enough to fix these.
+
+**Latency** (the NL2SQL pipeline only; the web request makes additional Agent model calls, so real requests take longer): p50 / p95 per question is 1.4 / 3.0 s for the cloud model and 2.6 / 13.6 s for the local one (CPU inference, hardware-dependent).
+
+**Cost**: 192 cloud calls over 3 runs, about 297K input and 20K output tokens (roughly US$0.4).
+
+You can reproduce these numbers without an API key or Ollama: the model responses are cached, so only the seeded database is needed.
+
+```powershell
+dotnet run --project eval/GeoNl2Sql.Eval -- eval --replay                # cache only, 0 model calls, compared with the published results question by question
+dotnet run --project eval/GeoNl2Sql.Eval -- eval --models cloud --runs 1 --limit 3   # calls the cloud model (billed); try a few first
+dotnet run --project eval/GeoNl2Sql.Eval -- eval --fresh                 # ignore the cache and measure again, saved separately, to check whether a model was updated
+dotnet run --project eval/GeoNl2Sql.Eval -- report                       # regenerate summary.md / accuracy.svg from the result files
+```
+
+The full tables (by category, failure type, and run-to-run differences) are in [eval/results/m5/summary.md](eval/results/m5/summary.md) (Chinese).
 
 ### Running the tests
 

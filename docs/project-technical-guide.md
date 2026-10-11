@@ -40,7 +40,7 @@ Web  ──▶ Core ◀── Tests ──▶ Web
 | 目標框架 | `net9.0`（四個專案一致） | 目前以 .NET 9 為基準；升級到 .NET 10 列在 §7 |
 | SDK 鎖定 | [global.json](../global.json)：`9.0.306`，`rollForward: latestFeature` | 升級框架時一併調整 |
 | 語言設定 | `Nullable` 與 `ImplicitUsings` 皆啟用 | |
-| 建置與測試 | `dotnet build GeoNl2Sql.slnx`、`dotnet test` | 0 警告 0 錯誤；全部 279 項測試通過，其中 60 項需要資料庫（標記 `Database`），其餘 219 項離線即可跑：`dotnet test --filter "Category!=Database"` |
+| 建置與測試 | `dotnet build GeoNl2Sql.slnx`、`dotnet test` | 0 警告 0 錯誤；全部 567 項測試通過，其中 159 項需要資料庫（標記 `Database`），其餘 408 項離線即可跑：`dotnet test --filter "Category!=Database"` |
 | 版本管理 | 預設分支 `main`；commit 前可由本機 pre-commit hook 執行 gitleaks | hook 在 `.git/hooks`，不隨儲存庫散佈，clone 後需自行設定 |
 
 ---
@@ -210,7 +210,7 @@ Web 路徑有：個資遮蔽（模型與 analyst 只看得到遮蔽值）、稽�
 
 ### 4.3 現況與規劃
 
-現況（共 279 項；離線 219 項、`Database` 60 項）：
+現況（共 567 項；離線 408 項、`Database` 159 項；下表列出主要的測試，未逐一列出每個里程碑新增的測試）：
 
 | 位置 | 內容 |
 |---|---|
@@ -224,6 +224,9 @@ Web 路徑有：個資遮蔽（模型與 analyst 只看得到遮蔽值）、稽�
 | `Agent/GeoAgentTests` | 以腳本化的假 `IChatClient` 驗證工具迴圈：輪數上限（1／3／6 輪都恰好停止）、模型收到的工具結果不含座標、20 個並行請求的地圖資料互不混入、非法參數被擋、串流事件順序與超限 |
 | `Web/` | 兩個控制器以假的 Agent 測試序列化契約、問題長度上限、串流事件格式，以及失敗路徑不洩漏例外細節 |
 | `Database/Spatial*Tests`、`GeoToolsDatabaseTests`（`Database`） | 全部行政區與基地台轉 GeoJSON 後通過檢查、質心與緩衝區對真實資料庫、空間索引的執行計畫探測 |
+| `Eval/BenchmarkIntegrityTests` | M5 的 60 題標準集：題數與各類別數、難度標籤只有三種、原 30 題與 `questions.json` 逐欄相同、標準 SQL 通過驗證器且不用目前時間、新 30 題不被輸入偵測誤擋 |
+| `Eval/CachingChatClientTests`、`BenchmarkRunnerTests`、`ReportCommandTests` | 評估工具的離線測試：快取的鍵（輪次與訊息差一字都不命中）、`--replay` 缺快取時帶題號丟例外、命中時回傳存下的用量與耗時；第 1 次失敗修正後成功時「無修正」記錯而「有修正」記對、最終 SQL 以第二個執行器重跑才比對、權限拒絕的次數；彙總的平均／最小／最大、百分位數、SVG 內容。Eval 的檔案以 `Compile Include` 連結進測試專案，不必引用整個 Eval |
+| `Database/BenchmarkGoldTests`（`Database`） | 60 題標準 SQL 以擁有者執行：結果非空、不超過 200 列、一列一欄的彙總不為 0；以 `geo_reader_pii` 執行的結果與擁有者相同 |
 | `Database/ReadOnlyBoundaryTests`（`Database`） | 60 條攻擊繞過驗證器直送唯讀執行器，前後比對 6 張表、`sys.objects` 與 `geo_reader` 權限的雜湊；逾時、列數上限；30 題標準 SQL 以 `geo_reader` 執行結果與管理身分相同 |
 
 需連模型的驗證歸 Eval，不放這裡。測試專案另引用 `ProjNET` 2.1.0 與 `GeoNl2Sql.Web`。尚待補的測試：PII 遮蔽規則（M4）。`UnitTest1` 是範本留下的空測試。
@@ -236,7 +239,7 @@ Web 路徑有：個資遮蔽（模型與 analyst 只看得到遮蔽值）、稽�
 
 ### 5.1 角色
 
-可執行的主控台專案（`OutputType=Exe`），以子命令分派：`hello`（hello-agent）、`seed`（建示範資料庫）、`spike`（M1 準確率量測）、`pipeline`（M2 端到端量測）、`ask`（手動問一題）、`agent`（M3 工具選擇量測）。它是目前唯一真正「動起來」的專案；後續的消融實驗與攻擊語料庫執行器也放這裡。
+可執行的主控台專案（`OutputType=Exe`），以子命令分派：`hello`（hello-agent）、`seed`（建示範資料庫）、`spike`（M1 準確率量測）、`pipeline`（M2 端到端量測）、`ask`（手動問一題）、`agent`（M3 工具選擇量測）、`attack`（M4 攻擊測試）、`eval` 與 `report`（M5 評估與報告）。評估、消融實驗與攻擊語料庫的執行器都放這裡。
 
 ### 5.2 使用套件
 
@@ -296,16 +299,18 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Ollama qwen2.5-coder:3b      #
 |---|---|
 | `seed` | 以固定亂數重建示範資料庫 `GeoNl2SqlDemo`（執行 `db/01`～`db/05` 的腳本，並依 `Reader`、`ReaderPii`、`Auditor` 三個連線字串建立對應 login；5 座基地台名稱被改成含指令的文字，供間接注入量測）；每次資料都相同 |
 | `spike` | M1 的丟棄式準確率量測，30 題標準集見 [m1-implementation-plan.md](m1-implementation-plan.md) |
-| `pipeline` | M2 端到端量測：逐題呼叫 `Nl2SqlPipeline`，與標準答案以**執行結果**比對（`Common/ResultComparer.cs`），並統計「驗證器誤擋」（被拒絕的 SQL 改以 `geo_reader` 執行後與標準答案相同）。標準 SQL 走 `Demo` 連線，生成的 SQL 只走 `Reader` 連線。選項 `--limit`、`--runs`、`--provider`、`--model`，另有 `--fake` 以固定回應不呼叫模型，驗證流程不花費用。結果寫到 `Results/`（不進 git），並印出模型呼叫次數與 token 用量 |
+| `pipeline` | M2 端到端量測：逐題呼叫 `Nl2SqlPipeline`，與標準答案以**執行結果**比對（`Common/ResultComparer.cs`），並統計「驗證器誤擋」（被拒絕的 SQL 改以 `geo_reader` 執行後與標準答案相同）。標準 SQL 走 `Demo` 連線，生成的 SQL 只走 `Reader` 連線。選項 `--limit`、`--ids`、`--runs`、`--provider`、`--model`、`--questions`（指定 `Questions/` 下的題集，預設 `questions.json`；60 題用 `benchmark.json`），另有 `--fake` 以固定回應不呼叫模型，驗證流程不花費用。結果寫到 `Results/`（不進 git），並印出模型呼叫次數與 token 用量 |
+| `eval` | M5 評估（`Questions/benchmark.json` 60 題）：{雲端 `claude-haiku-4-5`、本機 `qwen2.5:3b`} × 輪數（預設 3），每個（模型、輪次）一份結果檔寫到 `eval/results/m5/`（進版控），跑完自動執行 `report`。模型回應經 `CachingChatClient` 快取在 `eval/results/m5/cache/`（JSON Lines，鍵含供應商、模型、輪次、完整訊息、溫度與輸出上限，每次實際呼叫後立即附加）。`--replay` 只用快取（缺回應就停止並列出題號），結果寫到 `m5-replay/` 並與正式結果逐題比對；`--fresh` 忽略快取，結果另存 `m5-fresh-時間/`；另有 `--models`、`--runs`、`--limit`、`--ids`。計分由 `BenchmarkRunner` 負責：管線照產品條件（`geo_reader`）跑，成功後把最終 SQL 以 `geo_reader_pii` 重跑再與標準答案比對；「無修正」取第 1 次嘗試；另記權限拒絕（錯誤 230）、驗證器誤擋與模型／資料庫耗時。雲端的模型錯誤立即停止（不寫快取）；本機有 HTTP 狀態碼的錯誤記為 `model_error` 並寫入快取 |
+| `report` | 只讀 `eval/results/m5/` 的結果檔，產生 `summary.json`、`summary.md`（主表、依類別／難度／原新題、失敗類型與救回、誤擋與權限拒絕、延遲、輪次差異）與 `accuracy.svg`（直接寫出 SVG，不需繪圖套件）。選項 `--dir` |
 | `ask "問題"` | 手動問一題，印出每次嘗試的失敗類型、SQL、欄位、列數、是否截斷與前 20 列 |
 | `agent` | M3 工具選擇量測：對凍結的 12 題（`Questions/tools.json`）逐題跑 `GeoAgent`，印出選了哪個工具、參數是否正確、呼叫次數與 token 用量，結果寫 JSON 到 `Results/`。選項同 `pipeline`（`--limit`、`--provider`、`--model`） |
 | `attack --run A` | M4 攻擊測試：50 筆語料庫（`Questions/attacks.json`）與 10 題可疑但正常的問題（`benign-prompts.json`）；A 輪護欄全開、B 輪全關（25 筆）、C 輪以 admin 驗證模型請求不含原始個資。結果檔已遮掉原始個資，不進版控 |
 
-量測結果見 `feasibility-report.md` §7（M1）、§8（M2）、§9（M3）與 §10（M4）。
+量測結果見 `feasibility-report.md` §7（M1）、§8（M2）、§9（M3）、§10（M4）與 §11（M5）。
 
 ### 5.6 規劃
 
-- M5：評估管線、消融實驗、攻擊語料庫（結果快取以「題目＋模型＋提示詞版本」為鍵）。
+- 評估目前只量 `claude-haiku-4-5` 與 `qwen2.5:3b`；加入其他模型需要為 `eval` 加 `--model` 之類的選項（軌道目前寫死在 `EvalCommand`），數字應另外放，不混進已公布的主表。
 
 ---
 
@@ -332,7 +337,8 @@ dotnet user-secrets set "Model:ApiKey" "<your key>" --project eval/GeoNl2Sql.Eva
 | 項目 | 狀態 |
 |---|---|
 | 目標框架為 net9.0 | 之後升級到 .NET 10 時，一併調整四個專案的 `TargetFramework`、`global.json`、README 與相關文件 |
-| 本機模型的端到端準確率 | 未在 M2 量測；M1 的數字（40–47%）顯示瓶頸在語法層級，見 `feasibility-report.md` §7 |
+| 本機模型的端到端準確率 | M5 已量：`qwen2.5:3b` 有修正 22/60、無修正 21/60；修正幾乎無效，瓶頸在語法與方言，見 `feasibility-report.md` §11 |
+| 評估的涵蓋範圍 | 只有 60 題、一個雲端模型與一個本機模型；新題由同一個模型家族起草；溫度 0 下 3 輪相同只代表可重現，沒有量測對措辭變化的穩健性，見 `feasibility-report.md` §11.8 |
 | 模型拒答含 `SELECT` 字樣時的失敗訊息 | 安全失敗，但訊息是「SQL 語法無法解析」而非「模型拒絕」，見 `feasibility-report.md` §8.5 |
 | 函式白名單可能偏嚴 | 目前標準題與正常查詢集無誤擋；日後放寬須逐項記錄理由，且不放寬單一 `SELECT`、資料表白名單等基本規則 |
 | Web 的角色是自選、沒有登入與速率限制 | 有遮蔽、稽核與護欄，但仍不建議對外部署，見 §3.3 |
