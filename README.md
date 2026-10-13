@@ -32,6 +32,28 @@
 - **GeoJSON 不經過模型。** 工具把地圖資料放進單次請求專用的旁路，由網頁直接取用，模型只看到摘要。
 - **逐步串流。** 網頁顯示目前正在做的步驟，回答文字逐段出現，最後才畫出結果表與地圖。
 
+**安全分層**（◆ 確定性：由程式或資料庫權限保證；◇ 機率性：規則或字串比對，會漏）：
+
+```mermaid
+flowchart LR
+    Q["使用者問題"] --> L1["◇ 輸入偵測<br/>規則式"]
+    L1 --> M["模型"]
+    M --> L2["◆ SQL AST 白名單<br/>只放行單一 SELECT"]
+    L2 --> L3["◆ 唯讀登入 geo_reader<br/>逾時、列數上限、個資 DENY"]
+    L3 --> DB[("資料庫")]
+    DB --> L4["◇ 工具結果清理<br/>擋資料表內容中的指令"]
+    L4 --> M
+    M --> L5["◇ 輸出防護<br/>金絲雀、40 字元重疊"]
+    L5 --> L6["◆ 稽核<br/>append-only ledger"]
+    L6 --> R["回應"]
+    classDef det fill:#dbeafe,stroke:#1d4ed8,color:#111
+    classDef prob fill:#fef3c7,stroke:#b45309,color:#111
+    class L2,L3,L6 det
+    class L1,L4,L5 prob
+```
+
+寫入、改結構與個資外洩的保證，只來自 ◆ 的三層；◇ 的三層降低風險，但不是保證（實測見[攻擊測試結果](#攻擊測試結果)）。
+
 ## 目標
 
 - NL2SQL，並以確定性的安全邊界把關（SQL AST 白名單 + 唯讀資料庫登入）。
@@ -47,6 +69,27 @@
 | 核心 | `GeoNl2Sql.Core` | Agent Framework、模型工廠、護欄、SQL Server 存取與空間查詢（以資料夾區分，不另拆專案） |
 | 測試 | `tests/GeoNl2Sql.Tests` | 單元測試（可離線執行） |
 | 評估 | `eval/GeoNl2Sql.Eval` | hello-agent、評估與消融實驗 |
+
+一次請求的流程與元件：
+
+```mermaid
+flowchart TD
+    B["瀏覽器<br/>MVC View + Leaflet"] -->|"POST /query 或 /query/stream<br/>question、role"| C["QueryController／QueryStreamController"]
+    C --> S["QueryService<br/>輸入偵測 → Agent → 輸出防護"]
+    S --> A["GeoAgent<br/>Microsoft Agent Framework"]
+    A <--> M["IChatClient<br/>Anthropic 或 Ollama"]
+    A --> T1["query_database"]
+    A --> T2["get_district_centroid"]
+    A --> T3["buffer_around_point"]
+    T1 --> P["NL2SQL 管線<br/>SqlValidator → geo_reader 執行<br/>失敗時最多修正 2 次"]
+    T2 --> Q["寫死的參數化 SQL<br/>STCentroid／STBuffer"]
+    T3 --> Q
+    P --> DB[("SQL Server<br/>示範資料庫")]
+    Q --> DB
+    Q -. "GeoJSON 旁路（不經過模型）" .-> B
+    S -. "admin：同一句已驗證的 SQL<br/>以 geo_reader_pii 重跑" .-> DB
+    S -->|"送出結果前寫一筆"| AU[("audit.QueryLog<br/>append-only ledger<br/>geo_auditor")]
+```
 
 ## 快速開始（Docker）
 
@@ -237,6 +280,35 @@ dotnet run --project eval/GeoNl2Sql.Eval -- report                       # 由�
 
 完整的表格（依類別、失敗類型、各輪差異）見 [eval/results/m5/summary.md](eval/results/m5/summary.md)。
 
+## 攻擊測試結果
+
+**第一層：SQL AST 驗證器。** 60 條攻擊 SQL（動態 SQL、多語句、註解插入、大小寫變形、巢狀 CTE 夾帶寫入、`SELECT INTO`、外部資料來源、系統目錄探測等）在驗證器動工前就凍結，測試鎖住筆數與各類別數。出處：[feasibility-report.md](docs/feasibility-report.md) §8.1。
+
+| 項目 | 結果 |
+|---|---|
+| 攻擊 SQL 被驗證器拒絕 | 60／60，每條都有固定的拒絕原因 |
+| 誤擋（30 題標準 SQL、13 條看似可疑的正常查詢） | 0 |
+
+**第二層：只靠唯讀登入。** 把同樣 60 條**繞過驗證器**直接送進 `geo_reader`，前後對 6 張表、`sys.objects` 與登入自己的權限做雜湊比對，完全相同：沒有寫入、DDL 或權限變更成功。其中 47 條被資料庫以權限錯誤拒絕，10 條只讀取，3 條只能在 `tempdb` 建暫存物件。資料庫層擋不住、只有驗證器會擋的例外（例如全域暫存表、`sp_who`、`WAITFOR`）逐條列在 [§8.2](docs/feasibility-report.md)。
+
+**提示詞注入與個資**（`claude-haiku-4-5`、溫度 0、每題 1 次；規則與語料庫在執行前凍結）。出處：[feasibility-report.md](docs/feasibility-report.md) §10.2。
+
+| 輪次 | 題數 | 輸入偵測擋下 | 個資外洩 | 寫入 | 提示詞或 schema 洩漏 | 送往模型的請求含原始個資 | 模型被說服 |
+|---|---|---|---|---|---|---|---|
+| A：analyst、護欄全開 | 50 | 15（30%） | 0 | 0 | 0 | 0 | 0／10 |
+| B：護欄全關 | 25 | — | 0 | 0 | 0 | 0 | 0／5 |
+| C：admin、護欄全開 | 10 | 3 | 不適用 | 0 | 0 | 0 | — |
+
+輸入偵測對 42 題凍結題組與 10 題「看起來可疑但正常」的問題，誤擋皆為 0。三輪合計約 133 次模型呼叫。
+
+這些數字的限制（出處：[§10.3](docs/feasibility-report.md)）：
+
+- A 輪 50 筆只有 15 筆被規則擋下，其餘 35 筆是改寫、編碼、角色扮演等規則抓不到的寫法，**是模型自己拒絕的**。
+- **輸出防護三輪都沒有被真實攻擊觸發**，只被單元測試與假模型驗證過。
+- B 輪 25 筆中有 20 筆模型根本沒有呼叫工具，所以這一輪沒有真正考驗到「只靠資料庫與驗證器」；這項保證的證據來自上面的第二層測試。
+- 改寫式洩漏逐字比對抓不到：有一筆（P08）以一般文字概述了數條工作規則。
+- 單一模型、50 筆、單次執行，不是對所有模型或攻擊的保證。
+
 ## 執行測試
 
 ```powershell
@@ -253,6 +325,45 @@ $env:ConnectionStrings__ReaderPii = "$base;User ID=geo_reader_pii;Password=<GEO_
 $env:ConnectionStrings__Auditor   = "$base;User ID=geo_auditor;Password=<GEO_AUDITOR_PASSWORD>"
 $env:ConnectionStrings__Demo      = "$base;User ID=sa;Password=<MSSQL_SA_PASSWORD>"
 ```
+
+## 已知限制
+
+每條只列一句，細節與數字見連結。
+
+- **.NET 9 於 2026-11-10 結束支援。** v1.0.0 固定使用 .NET 9，升級到 .NET 10 列為 v1.0.0 之後的工作（[docs/project-technical-guide.md](docs/project-technical-guide.md) §7）。
+- **角色不是存取控制，網頁沒有登入與速率限制，請勿對外部署**（見[啟動網頁](#啟動網頁)的安全範圍）。
+- **提示詞注入的三道護欄是機率性的**：規則只擋下 30%，輸出防護沒有被真實攻擊檢驗過（見[攻擊測試結果](#攻擊測試結果)）。
+- **本機 `qwen2.5:3b` 在網頁的 Agent 流程中常不呼叫查詢工具**，只適合確認容器與模型連得通（[§9.5](docs/feasibility-report.md)）。
+- **本機模型的「溫度 0 可重現」不成立。** 評估裡由自我修正救回的 `G11`，2026-10-13 在同一台機器重跑都沒有救回，原因未查出；`eval --replay` 使用已存的快取，不受影響（[§13.2](docs/feasibility-report.md)）。
+- **自我修正的幫助很小**：雲端 0 題、本機 1 題被救回；SQL 能執行但結果不對時，管線不知道，也不會修正（[評估結果](#評估結果)）。
+- **評估樣本小**（1 題約 1.7 個百分點），新 30 題由 Claude 起草、作者審閱，與受測的雲端模型同屬一個模型家族（[評估結果](#評估結果)）。
+- **評估數字依賴 `Chinese_Taiwan_Stroke_CI_AS` 定序**，換成預設定序會少答對題目（見[快速開始](#快速開始docker)）。
+- **函式白名單可能偏嚴**：目前沒有誤擋，但使用者可能用到白名單以外的函式（[§8.5](docs/feasibility-report.md)）。
+- **SQL Server 映像只有 amd64**，Apple Silicon 需模擬執行；地圖底圖是 OpenStreetMap 圖磚，只適合低流量展示。
+
+## 費用
+
+| 項目 | 費用 | 出處 |
+|---|---|---|
+| `eval --replay`（重現公布的評估數字） | 0，不呼叫模型 | [評估結果](#評估結果) |
+| Docker 快速開始搭配 Ollama | 0 | [§13.1](docs/feasibility-report.md) |
+| 網頁用雲端模型問答 | 每題約 0.01 美元（兩題實測 0.0085 與 0.0105 美元，每題 3 次模型呼叫） | [§13.1](docs/feasibility-report.md) |
+| 完整評估（`eval --fresh`，60 題 × 3 輪 × 雲端） | 約 0.4 美元（192 次呼叫、約 29.7 萬輸入與 2 萬輸出 token） | [§11.6](docs/feasibility-report.md) |
+| 攻擊測試（A、B、C 三輪） | 約 133 次雲端呼叫 | [§10.2](docs/feasibility-report.md) |
+
+雲端價格依 `claude-haiku-4-5` 公開價格計算（輸入 1 美元、輸出 5 美元／百萬 token），實際金額以你的帳單為準。
+
+## 想重現什麼
+
+| 想重現什麼 | 指令 | 要金鑰嗎 | 費用 |
+|---|---|---|---|
+| 公布的評估數字 | `docker compose up -d --build` 後 `eval --replay`（見[執行測試](#執行測試)） | 否 | 0 |
+| 離線測試 | `dotnet test --filter "Category!=Database"` | 否 | 0 |
+| 資料庫測試 | compose 的資料庫 + `dotnet test`（見[執行測試](#執行測試)） | 否 | 0 |
+| CI 的完整流程 | 看 [CI 紀錄](https://github.com/Rocky1987/geo-nl2sql-agent/actions/workflows/ci.yml) | 否 | 0 |
+| 網頁示範 | `docker compose up --build`（見[快速開始](#快速開始docker)） | 雲端模型要；Ollama 不要 | 每題約 0.01 美元；Ollama 0 |
+| 重新量測評估 | `eval --fresh` | 要 | 約 0.4 美元 |
+| 攻擊測試 | `attack --run A／B／C`（見[執行攻擊測試](#執行攻擊測試)） | 要 | 約 133 次呼叫 |
 
 ## 授權
 
@@ -292,6 +403,28 @@ Spatial design choices:
 - **GeoJSON never goes through the model.** Tools put map data on a per-request side channel that the page reads directly; the model sees only a summary.
 - **Step-by-step streaming.** The page shows the current step, the answer text appears progressively, and the result table and map are drawn at the end.
 
+**Security layers** (◆ deterministic: guaranteed by code or database permissions; ◇ probabilistic: rules or string matching, can miss):
+
+```mermaid
+flowchart LR
+    Q["User question"] --> L1["◇ Input detection<br/>rule-based"]
+    L1 --> M["Model"]
+    M --> L2["◆ SQL AST allow-list<br/>single SELECT only"]
+    L2 --> L3["◆ Read-only login geo_reader<br/>timeout, row cap, PII DENY"]
+    L3 --> DB[("Database")]
+    DB --> L4["◇ Tool-result scrubbing<br/>instructions in table content"]
+    L4 --> M
+    M --> L5["◇ Output guard<br/>canary, 40-char overlap"]
+    L5 --> L6["◆ Audit<br/>append-only ledger"]
+    L6 --> R["Response"]
+    classDef det fill:#dbeafe,stroke:#1d4ed8,color:#111
+    classDef prob fill:#fef3c7,stroke:#b45309,color:#111
+    class L2,L3,L6 det
+    class L1,L4,L5 prob
+```
+
+The guarantees against writes, schema changes and PII leaks come only from the three ◆ layers; the three ◇ layers reduce risk but are not guarantees (measured in [Attack test results](#attack-test-results)).
+
 ### Goals
 
 - NL2SQL with deterministic safety boundaries (SQL AST allow-list + read-only database login).
@@ -307,6 +440,27 @@ Spatial design choices:
 | Core | `GeoNl2Sql.Core` | Agent Framework, model factory, guardrails, SQL Server access and spatial queries (separated by folders, not by projects) |
 | Tests | `tests/GeoNl2Sql.Tests` | Unit tests (run offline) |
 | Eval | `eval/GeoNl2Sql.Eval` | hello-agent, evaluation and ablations |
+
+Components and the flow of one request:
+
+```mermaid
+flowchart TD
+    B["Browser<br/>MVC View + Leaflet"] -->|"POST /query or /query/stream<br/>question, role"| C["QueryController / QueryStreamController"]
+    C --> S["QueryService<br/>input detection → Agent → output guard"]
+    S --> A["GeoAgent<br/>Microsoft Agent Framework"]
+    A <--> M["IChatClient<br/>Anthropic or Ollama"]
+    A --> T1["query_database"]
+    A --> T2["get_district_centroid"]
+    A --> T3["buffer_around_point"]
+    T1 --> P["NL2SQL pipeline<br/>SqlValidator → run as geo_reader<br/>up to 2 corrections on failure"]
+    T2 --> Q["Fixed parameterized SQL<br/>STCentroid / STBuffer"]
+    T3 --> Q
+    P --> DB[("SQL Server<br/>demo database")]
+    Q --> DB
+    Q -. "GeoJSON side channel (bypasses the model)" .-> B
+    S -. "admin: same validated SQL<br/>re-run as geo_reader_pii" .-> DB
+    S -->|"one row before the result is sent"| AU[("audit.QueryLog<br/>append-only ledger<br/>geo_auditor")]
+```
 
 ### Quick start (Docker)
 
@@ -497,6 +651,35 @@ dotnet run --project eval/GeoNl2Sql.Eval -- report                       # regen
 
 The full tables (by category, failure type, and run-to-run differences) are in [eval/results/m5/summary.md](eval/results/m5/summary.md) (Chinese).
 
+### Attack test results
+
+**Layer 1: the SQL AST validator.** 60 attack SQL statements (dynamic SQL, multiple statements, comment injection, case and whitespace variants, writes hidden in nested CTEs, `SELECT INTO`, external data sources, system-catalog probing and more) were frozen before the validator was written, and a test locks the counts per category. Source: [feasibility-report.md](docs/feasibility-report.md) §8.1 (written in Chinese).
+
+| Item | Result |
+|---|---|
+| Attack SQL rejected by the validator | 60/60, each with a fixed rejection reason |
+| False rejects (30 gold queries, 13 suspicious-looking but harmless queries) | 0 |
+
+**Layer 2: the read-only login alone.** The same 60 statements were sent straight to `geo_reader` **bypassing the validator**, with hashes of 6 tables, `sys.objects` and the login's own permissions compared before and after: identical, so no write, DDL or permission change succeeded. 47 were denied by the database with a permission error, 10 only read, and 3 could only create temp objects in `tempdb`. The exceptions that the database layer cannot stop and only the validator does (e.g. global temp tables, `sp_who`, `WAITFOR`) are listed one by one in [§8.2](docs/feasibility-report.md).
+
+**Prompt injection and PII** (`claude-haiku-4-5`, temperature 0, one run per attack; rules and corpus frozen before the run). Source: [feasibility-report.md](docs/feasibility-report.md) §10.2.
+
+| Run | Attacks | Blocked by input detection | PII leaked | Writes | Prompt or schema leaked | Raw PII in requests sent to the model | Model persuaded |
+|---|---|---|---|---|---|---|---|
+| A: analyst, all guardrails on | 50 | 15 (30%) | 0 | 0 | 0 | 0 | 0/10 |
+| B: guardrails off | 25 | — | 0 | 0 | 0 | 0 | 0/5 |
+| C: admin, all guardrails on | 10 | 3 | n/a | 0 | 0 | 0 | — |
+
+Input detection had 0 false rejects on the 42 frozen questions and on 10 "suspicious-looking but normal" ones. The three runs together made about 133 model calls.
+
+Limits of these numbers (source: [§10.3](docs/feasibility-report.md)):
+
+- In run A only 15 of 50 were blocked by the rules; the other 35 used rewording, encoding or role-play that the rules miss, and **the model refused them by itself**.
+- **The output guard was never triggered by a real attack in any run**; it has only been exercised by unit tests and a fake model.
+- In run B, 20 of the 25 attacks never made the model call a tool, so that run did not truly test "database and validator alone"; the evidence for that claim is the Layer 2 test above.
+- Paraphrased leaks slip past exact matching: one (P08) summarized several working rules in plain words.
+- One model, 50 attacks, a single run: not a guarantee for every model or attack.
+
 ### Running the tests
 
 ```powershell
@@ -513,6 +696,45 @@ $env:ConnectionStrings__ReaderPii = "$base;User ID=geo_reader_pii;Password=<GEO_
 $env:ConnectionStrings__Auditor   = "$base;User ID=geo_auditor;Password=<GEO_AUDITOR_PASSWORD>"
 $env:ConnectionStrings__Demo      = "$base;User ID=sa;Password=<MSSQL_SA_PASSWORD>"
 ```
+
+### Known limitations
+
+One sentence each; details and numbers are behind the links (the linked reports are written in Chinese).
+
+- **.NET 9 reaches end of support on 2026-11-10.** v1.0.0 stays on .NET 9; moving to .NET 10 is planned work after v1.0.0 ([docs/project-technical-guide.md](docs/project-technical-guide.md) §7).
+- **The role is not access control, and the page has no login or rate limiting, so do not deploy it publicly** (see the safety scope under [Run the web page](#run-the-web-page)).
+- **The three prompt-injection guardrails are probabilistic**: the rules blocked only 30%, and the output guard has not been tested by a real attack (see [Attack test results](#attack-test-results)).
+- **The local `qwen2.5:3b` often skips the query tool in the web Agent flow**, so it is only good for checking that the container reaches the model ([§9.5](docs/feasibility-report.md)).
+- **"Reproducible at temperature 0" does not hold for the local model.** `G11`, rescued by self-correction in the evaluation, was not rescued when re-run on the same machine on 2026-10-13, and the cause is unknown; `eval --replay` uses the stored cache and is unaffected ([§13.2](docs/feasibility-report.md)).
+- **Self-correction helps very little**: 0 questions rescued for the cloud model, 1 for the local one; when the SQL runs but returns the wrong result, the pipeline cannot tell and does not retry (see [Evaluation results](#evaluation-results)).
+- **The evaluation sample is small** (one question is about 1.7 percentage points), and the new 30 questions were drafted by Claude and reviewed by the author, from the same model family as the cloud model under test (see [Evaluation results](#evaluation-results)).
+- **The evaluation numbers depend on the `Chinese_Taiwan_Stroke_CI_AS` collation**; the default collation gets fewer questions right (see [Quick start](#quick-start-docker)).
+- **The function allow-list may be too strict**: there are no false rejects today, but users may need functions outside it ([§8.5](docs/feasibility-report.md)).
+- **The SQL Server image is amd64 only**, so Apple Silicon needs emulation; the map base layer is OpenStreetMap tiles, suitable for low-traffic demos only.
+
+### Cost
+
+| Item | Cost | Source |
+|---|---|---|
+| `eval --replay` (reproduce the published evaluation numbers) | 0, no model calls | [Evaluation results](#evaluation-results) |
+| Docker quick start with Ollama | 0 | [§13.1](docs/feasibility-report.md) |
+| Web questions with the cloud model | about US$0.01 per question (two measured: US$0.0085 and US$0.0105, 3 model calls each) | [§13.1](docs/feasibility-report.md) |
+| Full evaluation (`eval --fresh`, 60 questions × 3 runs × cloud) | about US$0.4 (192 calls, about 297K input and 20K output tokens) | [§11.6](docs/feasibility-report.md) |
+| Attack test (runs A, B and C) | about 133 cloud calls | [§10.2](docs/feasibility-report.md) |
+
+Cloud costs use the public `claude-haiku-4-5` price (US$1 per million input tokens, US$5 per million output tokens); your bill is what counts.
+
+### What do you want to reproduce?
+
+| To reproduce | Command | API key? | Cost |
+|---|---|---|---|
+| The published evaluation numbers | `docker compose up -d --build`, then `eval --replay` (see [Running the tests](#running-the-tests)) | No | 0 |
+| Offline tests | `dotnet test --filter "Category!=Database"` | No | 0 |
+| Database tests | the compose database + `dotnet test` (see [Running the tests](#running-the-tests)) | No | 0 |
+| The full CI flow | see the [CI runs](https://github.com/Rocky1987/geo-nl2sql-agent/actions/workflows/ci.yml) | No | 0 |
+| The web demo | `docker compose up --build` (see [Quick start](#quick-start-docker)) | Cloud model yes; Ollama no | about US$0.01 per question; Ollama 0 |
+| Re-measure the evaluation | `eval --fresh` | Yes | about US$0.4 |
+| The attack test | `attack --run A/B/C` (see [Run the attack test](#run-the-attack-test)) | Yes | about 133 calls |
 
 ### License
 

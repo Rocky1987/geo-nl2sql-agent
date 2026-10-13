@@ -3,7 +3,7 @@
 | 項目 | 內容 |
 |---|---|
 | 讀者 | 想深入了解本方案技術內容的開發者 |
-| 文件日期 | 2026-10-09（涵蓋模型工廠、護欄、NL2SQL 管線、空間查詢、Agent 工具迴圈與 Web 前端；PII、稽核尚未實作） |
+| 文件日期 | 2026-10-13（涵蓋模型工廠、護欄、NL2SQL 管線、空間查詢、Agent 工具迴圈、Web 前端、個資遮蔽、稽核、提示詞注入護欄、評估與 Docker／CI；M1～M6 的實測與 M7 的補驗見 `feasibility-report.md`） |
 | 範圍 | 方案內四個專案：`GeoNl2Sql.Core`、`GeoNl2Sql.Web`、`GeoNl2Sql.Tests`、`GeoNl2Sql.Eval` |
 | 閱讀提醒 | 每個專案都分成「**現況**（已存在於程式碼）」與「**規劃**（尚未實作，來自 `feasibility-report.md`）」。尚未實作的部分不當成既成事實描述。 |
 
@@ -229,7 +229,7 @@ Web 路徑有：個資遮蔽（模型與 analyst 只看得到遮蔽值）、稽�
 | `Database/BenchmarkGoldTests`（`Database`） | 60 題標準 SQL 以擁有者執行：結果非空、不超過 200 列、一列一欄的彙總不為 0；以 `geo_reader_pii` 執行的結果與擁有者相同 |
 | `Database/ReadOnlyBoundaryTests`（`Database`） | 60 條攻擊繞過驗證器直送唯讀執行器，前後比對 6 張表、`sys.objects` 與 `geo_reader` 權限的雜湊；逾時、列數上限；30 題標準 SQL 以 `geo_reader` 執行結果與管理身分相同 |
 
-需連模型的驗證歸 Eval，不放這裡。測試專案另引用 `ProjNET` 2.1.0 與 `GeoNl2Sql.Web`。尚待補的測試：PII 遮蔽規則（M4）。`UnitTest1` 是範本留下的空測試。
+需連模型的驗證歸 Eval，不放這裡。測試專案另引用 `ProjNET` 2.1.0 與 `GeoNl2Sql.Web`。個資遮蔽的資料庫層測試在 `Database/PiiBoundaryTests`、`Database/ModelRequestPiiTests`。`UnitTest1` 是範本留下的空測試。
 
 ---
 
