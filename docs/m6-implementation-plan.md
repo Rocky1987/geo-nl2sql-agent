@@ -42,7 +42,7 @@
 - 推映像到 registry（GHCR）、Kubernetes／Helm、雲端部署、HTTPS 反向代理（README 已寫明「請勿對外部署」）。
 - 在 CI 呼叫真實模型、排程跑 `eval --fresh`。
 - CodeQL、Dependabot、CI 內的 gitleaks（已有 pre-commit 的 gitleaks 與 GitHub secret scanning）。
-- 改回 `net10.0`（另案；容器沿用 9.0 映像）。
+- 改回 `net10.0`（另案；容器沿用 9.0 映像）。M7 Q1 已決定 v1.0.0 固定使用 .NET 9，升級在 v1.0.0 之後。
 - SQL Server 的 arm64 方案；Ollama 的 GPU 直通只寫文件、不放進預設設定。
 - 資料與稽核紀錄跨重啟保留（Q2）。
 - CI 的建置快取與加速。

@@ -37,7 +37,7 @@ Web  ──▶ Core ◀── Tests ──▶ Web
 
 | 項目 | 目前值 | 說明 |
 |---|---|---|
-| 目標框架 | `net9.0`（四個專案一致） | 目前以 .NET 9 為基準；升級到 .NET 10 列在 §7 |
+| 目標框架 | `net9.0`（四個專案一致） | v1.0.0 固定使用 .NET 9（2026-11-10 結束支援）；升級到 .NET 10 列在 §7 |
 | SDK 鎖定 | [global.json](../global.json)：`9.0.306`，`rollForward: latestFeature` | 升級框架時一併調整 |
 | 語言設定 | `Nullable` 與 `ImplicitUsings` 皆啟用 | |
 | 建置與測試 | `dotnet build GeoNl2Sql.slnx`、`dotnet test` | 0 警告 0 錯誤；全部 567 項測試通過，其中 159 項需要資料庫（標記 `Database`），其餘 408 項離線即可跑：`dotnet test --filter "Category!=Database"` |
@@ -360,7 +360,7 @@ CI 沒有任何儲存庫機密、不呼叫模型；各個 action 以 commit SHA 
 
 | 項目 | 狀態 |
 |---|---|
-| 目標框架為 net9.0 | 之後升級到 .NET 10 時，一併調整四個專案的 `TargetFramework`、`global.json`、README 與相關文件 |
+| 目標框架為 net9.0 | v1.0.0 之後另案升級到 .NET 10 時，一併調整四個專案的 `TargetFramework`、`global.json`、README 與相關文件 |
 | 本機模型的端到端準確率 | M5 已量：`qwen2.5:3b` 有修正 22/60、無修正 21/60；修正幾乎無效，瓶頸在語法與方言，見 `feasibility-report.md` §11 |
 | 評估的涵蓋範圍 | 只有 60 題、一個雲端模型與一個本機模型；新題由同一個模型家族起草；溫度 0 下 3 輪相同只代表可重現，沒有量測對措辭變化的穩健性，見 `feasibility-report.md` §11.8 |
 | 模型拒答含 `SELECT` 字樣時的失敗訊息 | 安全失敗，但訊息是「SQL 語法無法解析」而非「模型拒絕」，見 `feasibility-report.md` §8.5 |
