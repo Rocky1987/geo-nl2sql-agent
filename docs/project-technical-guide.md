@@ -320,6 +320,7 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Ollama qwen2.5-coder:3b      #
 |---|---|---|
 | 一般設定 | `appsettings.json`（進 git） | 供應商、模型 ID、Ollama 端點、（M1 起）無密碼的資料庫連線字串範本 |
 | 本機開發機密 | user-secrets | `Model:ApiKey`；`ConnectionStrings:Demo`（覆蓋 appsettings.json 的範本值）；`ConnectionStrings:Reader`（`geo_reader` 的 SQL 驗證連線，含密碼；Eval 與 Tests 共用同一個 `UserSecretsId`）；`ConnectionStrings:ReaderPii`（`geo_reader_pii`）；`ConnectionStrings:Auditor`（`geo_auditor`）。三個 login 都由 `seed` 依連線字串建立 |
+| 容器佈署機密 | `.env`（不進 git，樣板是 `.env.example`） | 四個密碼（SA、`geo_reader`、`geo_reader_pii`、`geo_auditor`）、`MODEL_PROVIDER`、`MODEL_ID`、`MODEL_API_KEY`、`OLLAMA_ENDPOINT`；compose 讀入後以環境變數交給容器，缺少密碼時立即停止並指出變數名稱。web 容器拿不到 SA 密碼，只有 `seed` 用 SA |
 | 佈署機密 | 環境變數 | `Model__ApiKey`；含密碼的連線字串用 `ConnectionStrings__Demo`、`ConnectionStrings__Reader`、`ConnectionStrings__ReaderPii`、`ConnectionStrings__Auditor` |
 | 提交前 | 本機 pre-commit：gitleaks 8.30.1 | 掃描 staged 變更 |
 | 推送時 | GitHub Secret scanning + Push protection | 儲存庫已啟用 |
@@ -329,6 +330,29 @@ dotnet run --project eval/GeoNl2Sql.Eval -- hello Ollama qwen2.5-coder:3b      #
 ```powershell
 dotnet user-secrets set "Model:ApiKey" "<your key>" --project eval/GeoNl2Sql.Eval
 ```
+
+---
+
+## 6A. 部署與 CI（M6）
+
+| 項目 | 內容 |
+|---|---|
+| 檔案 | `Dockerfile`（`seed`、`web` 兩個建置目標）、`compose.yaml`、`.env.example`、`.dockerignore`、`.gitattributes`、`.github/workflows/ci.yml` |
+| 啟動順序 | `sqlserver`（healthcheck）→ `seed`（以 SA 重建資料庫與三個登入，結束代碼 0）→ `web`（`depends_on` 設為 `service_completed_successfully`，非 root 執行，只用三個受限登入）。`ollama` 在選用 profile，預設不啟動 |
+| 映像 | SQL Server 固定為 `2022-CU27-ubuntu-22.04`（只有 amd64）；`MSSQL_PID=Express` |
+| 資料 | 不掛 volume，每次 `up` 以固定種子重建 |
+| 連接埠 | 網頁 8080、資料庫 14333，都只綁 `127.0.0.1` |
+| 定序 | 必須是 `Chinese_Taiwan_Stroke_CI_AS`（`MSSQL_COLLATION`）。Linux 映像預設的 Latin1 會讓不帶 `N` 的中文字串變成 `?`，重播時雲端少 8 題、本機少 3 題 |
+| 換行 | `.gitattributes` 的 `* text=auto eol=lf` 讓 Windows 的 checkout 也是 LF；`PromptBuilder` 的原始字串常值含換行，CRLF 會改變 system 訊息與快取鍵 |
+
+CI（GitHub Actions，`push` 到 main 與所有 `pull_request` 都會觸發）：
+
+| Job | 內容 |
+|---|---|
+| `offline`（ubuntu、windows） | `dotnet test --filter "Category!=Database"`，408 項；Windows 那份守住換行規則 |
+| `integration`（ubuntu，需 `offline` 通過） | 隨機產生密碼並遮蔽、寫入暫時的 `.env`；`docker compose up -d --build`；確認 `seed` 結束代碼 0 且網頁回 200；跑資料庫測試 159 項；跑 `eval --replay`（結束代碼 0 表示 6 份結果與公布的逐題相同） |
+
+CI 沒有任何儲存庫機密、不呼叫模型；各個 action 以 commit SHA 固定版本。
 
 ---
 

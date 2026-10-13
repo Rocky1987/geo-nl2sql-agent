@@ -1,5 +1,7 @@
 # geo-nl2sql-agent
 
+[![CI](https://github.com/Rocky1987/geo-nl2sql-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Rocky1987/geo-nl2sql-agent/actions/workflows/ci.yml)
+
 **中文** | [English](#english)
 
 以 .NET 與 Microsoft Agent Framework 打造的「自然語言轉 SQL」空間資料代理，後端為 SQL Server，Web 層採用 ASP.NET Core MVC。
@@ -46,7 +48,27 @@
 | 測試 | `tests/GeoNl2Sql.Tests` | 單元測試（可離線執行） |
 | 評估 | `eval/GeoNl2Sql.Eval` | hello-agent、評估與消融實驗 |
 
+## 快速開始（Docker）
+
+不必安裝 .NET 與 SQL Server，只需要 Docker（Compose v2）。`docker compose up` 會依序啟動 SQL Server、以固定種子建立示範資料庫與三個唯讀登入、再啟動網頁。
+
+```bash
+cp .env.example .env      # 填入四個密碼；用雲端模型時再填 MODEL_API_KEY
+docker compose up --build
+```
+
+等到 `web` 開始監聽後，開啟 <http://127.0.0.1:8080>。
+
+- **沒有金鑰**：在 `.env` 改成 `MODEL_PROVIDER=Ollama`、`MODEL_ID=qwen2.5:3b`。注意：`qwen2.5:3b` 在網頁的 Agent 流程中常不呼叫查詢工具、只回「查詢失敗」，只適合確認容器與模型連得通；要看到有效回答請用雲端模型。預設連主機上的 Ollama（`OLLAMA_ENDPOINT`）；也可用 `docker compose --profile ollama up`，並把 `OLLAMA_ENDPOINT` 改成 `http://ollama:11434`，再執行一次 `docker compose exec ollama ollama pull qwen2.5:3b`。容器版預設只用 CPU；Windows 上原生跑 Ollama 才直接用得到 GPU，容器內要用 GPU 需 NVIDIA 驅動與 WSL2，並自行在 compose 加上 GPU 設定。
+- **記憶體**：SQL Server 至少需要 2 GB，請在 Docker Desktop 分配足夠記憶體。
+- **連接埠**：只綁 `127.0.0.1`（網頁沒有登入，且會用你的金鑰呼叫雲端模型）。網頁是 8080、資料庫是 14333；衝突時修改 `compose.yaml` 的 `ports`。
+- **資料庫不保存**：每次 `up` 都以固定種子重建，`docker compose down` 後資料即消失。
+- **CPU 架構**：SQL Server 映像只有 amd64；Apple Silicon 需透過 Rosetta／模擬執行，速度較慢。
+- **定序**：compose 把資料庫定序設為 `Chinese_Taiwan_Stroke_CI_AS`。Linux 映像預設是 Latin1，不帶 `N` 的中文字串會變成 `?`，評估數字會不同（雲端少 8 題、本機少 3 題），所以請不要移除這項設定。
+
 ## 環境需求
+
+以下是不用 Docker、直接在主機開發時的需求。
 
 - .NET SDK 9（版本鎖定於 `global.json`）
 - 本機軌：Ollama 與 `qwen2.5:3b`
@@ -204,7 +226,7 @@ dotnet run --project eval/GeoNl2Sql.Eval -- attack --run C --provider Anthropic 
 
 **費用**：雲端 3 輪共 192 次呼叫、約 29.7 萬輸入與 2 萬輸出 token（約 0.4 美元）。
 
-不需要金鑰與 Ollama 也能重現這些數字：模型回應已存進快取，只需種子資料庫。
+不需要金鑰與 Ollama 也能重現這些數字：模型回應已存進快取，只需種子資料庫。**數字依賴 `Chinese_Taiwan_Stroke_CI_AS` 定序**（compose 已設定；自行架設的資料庫也請用同一個定序）。
 
 ```powershell
 dotnet run --project eval/GeoNl2Sql.Eval -- eval --replay                # 只用快取，0 次模型呼叫，並與公布的結果逐題比對
@@ -220,6 +242,16 @@ dotnet run --project eval/GeoNl2Sql.Eval -- report                       # 由�
 ```powershell
 dotnet test --filter "Category!=Database"   # 離線測試，不需資料庫與模型
 dotnet test                                  # 全部；需有種子資料庫與 geo_reader
+```
+
+用 compose 的資料庫跑資料庫測試與重播：先 `docker compose up -d --build`，再把四個連線字串設成環境變數（主機端連 `127.0.0.1,14333`，密碼同 `.env`），最後執行上面的 `dotnet test`。CI 每次推送都會這樣跑一遍（見 [.github/workflows/ci.yml](.github/workflows/ci.yml)）。
+
+```powershell
+$base = "Server=127.0.0.1,14333;Database=GeoNl2SqlDemo;TrustServerCertificate=True"
+$env:ConnectionStrings__Reader    = "$base;User ID=geo_reader;Password=<GEO_READER_PASSWORD>"
+$env:ConnectionStrings__ReaderPii = "$base;User ID=geo_reader_pii;Password=<GEO_READER_PII_PASSWORD>"
+$env:ConnectionStrings__Auditor   = "$base;User ID=geo_auditor;Password=<GEO_AUDITOR_PASSWORD>"
+$env:ConnectionStrings__Demo      = "$base;User ID=sa;Password=<MSSQL_SA_PASSWORD>"
 ```
 
 ## 授權
@@ -276,7 +308,27 @@ Spatial design choices:
 | Tests | `tests/GeoNl2Sql.Tests` | Unit tests (run offline) |
 | Eval | `eval/GeoNl2Sql.Eval` | hello-agent, evaluation and ablations |
 
+### Quick start (Docker)
+
+No .NET or SQL Server install needed, only Docker (Compose v2). `docker compose up` starts SQL Server, builds the demo database from a fixed seed with three read-only logins, then starts the web page.
+
+```bash
+cp .env.example .env      # fill in the four passwords; add MODEL_API_KEY for the cloud model
+docker compose up --build
+```
+
+Once `web` is listening, open <http://127.0.0.1:8080>.
+
+- **No API key**: set `MODEL_PROVIDER=Ollama` and `MODEL_ID=qwen2.5:3b` in `.env`. Note that `qwen2.5:3b` often skips the query tool in the web Agent flow and just answers "query failed"; it is only good for checking that the container reaches the model. Use the cloud model for useful answers. By default it talks to Ollama on the host (`OLLAMA_ENDPOINT`); you can also run `docker compose --profile ollama up`, point `OLLAMA_ENDPOINT` at `http://ollama:11434`, and run `docker compose exec ollama ollama pull qwen2.5:3b` once. The container uses CPU only by default; running Ollama natively on Windows uses the GPU directly, while GPU passthrough into the container needs an NVIDIA driver and WSL2 plus your own GPU settings in compose.
+- **Memory**: SQL Server needs at least 2 GB; give Docker enough.
+- **Ports**: bound to `127.0.0.1` only (the page has no login and calls the cloud model with your key). The page is on 8080 and the database on 14333; edit `ports` in `compose.yaml` if they clash.
+- **No persistent data**: every `up` rebuilds the database from the fixed seed; `docker compose down` discards it.
+- **CPU architecture**: the SQL Server image is amd64 only; on Apple Silicon it runs under Rosetta/emulation and is slower.
+- **Collation**: compose sets the database collation to `Chinese_Taiwan_Stroke_CI_AS`. The Linux image defaults to Latin1, which turns Chinese string literals without an `N` prefix into `?` and changes the evaluation numbers (8 fewer correct for the cloud model, 3 fewer for the local one), so do not remove that setting.
+
 ### Requirements
+
+These are the requirements for developing directly on the host, without Docker.
 
 - .NET SDK 9 (pinned in `global.json`)
 - Local track: Ollama with `qwen2.5:3b`
@@ -434,7 +486,7 @@ How to read the numbers:
 
 **Cost**: 192 cloud calls over 3 runs, about 297K input and 20K output tokens (roughly US$0.4).
 
-You can reproduce these numbers without an API key or Ollama: the model responses are cached, so only the seeded database is needed.
+You can reproduce these numbers without an API key or Ollama: the model responses are cached, so only the seeded database is needed. **The numbers depend on the `Chinese_Taiwan_Stroke_CI_AS` collation** (compose sets it; use the same collation for a database you set up yourself).
 
 ```powershell
 dotnet run --project eval/GeoNl2Sql.Eval -- eval --replay                # cache only, 0 model calls, compared with the published results question by question
@@ -450,6 +502,16 @@ The full tables (by category, failure type, and run-to-run differences) are in [
 ```powershell
 dotnet test --filter "Category!=Database"   # offline tests, no database or model needed
 dotnet test                                  # everything; needs the seeded database and geo_reader
+```
+
+To run the database tests and the replay against the compose database: run `docker compose up -d --build`, set the four connection strings below as environment variables (from the host, connect to `127.0.0.1,14333`; passwords as in `.env`), then run the `dotnet test` commands above. CI does exactly this on every push (see [.github/workflows/ci.yml](.github/workflows/ci.yml)).
+
+```powershell
+$base = "Server=127.0.0.1,14333;Database=GeoNl2SqlDemo;TrustServerCertificate=True"
+$env:ConnectionStrings__Reader    = "$base;User ID=geo_reader;Password=<GEO_READER_PASSWORD>"
+$env:ConnectionStrings__ReaderPii = "$base;User ID=geo_reader_pii;Password=<GEO_READER_PII_PASSWORD>"
+$env:ConnectionStrings__Auditor   = "$base;User ID=geo_auditor;Password=<GEO_AUDITOR_PASSWORD>"
+$env:ConnectionStrings__Demo      = "$base;User ID=sa;Password=<MSSQL_SA_PASSWORD>"
 ```
 
 ### License

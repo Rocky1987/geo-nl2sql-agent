@@ -246,16 +246,16 @@ M7 收尾：README、影片 (模組13)            ──► v1.0.0
 - [x] 一鍵指令重現評估（模型呼叫結果可快取）（`eval --replay`，0 次模型呼叫，6 份結果逐題相同）
 
 **M6｜容器化與 CI（約 3 人日）**
-- [ ] `docker compose up` 後 App + SQL Server 可用，並自動建庫與灌入合成資料
-- [ ] Compose 服務拆分：`sqlserver`（`MSSQL_PID=Express`、`ACCEPT_EULA=Y`、healthcheck）→ `seed`（一次性，等 sqlserver 健康後執行，完成即退出）→ `web`（`depends_on` seed 成功完成）。使用者指令是 `docker compose up`，不是 `docker run`
-- [ ] `.env.example`：列出 SA 密碼與 geo_reader 密碼欄位，使用者複製成 `.env` 填值；`.env` 不 commit。註解寫明 SA 密碼複雜度規則（至少 8 碼，含大小寫、數字、符號），不符時容器啟動失敗
-- [ ] 連線字串與金鑰走環境變數（`ConnectionStrings__Reader` 等；seed 已載入環境變數來源）。compose 一律提供 Reader，程式本身維持選填，本機 M1 路徑不受影響
-- [ ] seed 的管理連線（目前以 Windows 驗證連 master）改為可由環境變數覆蓋，容器內改用 SA 帳密；**先確認這點再寫 compose**
-- [ ] Ollama 做成 compose 的選用 profile，預設不啟動
-- [ ] README 快速開始：`cp .env.example .env` → 填密碼 → `docker compose up` → 開瀏覽器。註明 SQL Server Linux 映像只有 amd64，Apple Silicon 需 Rosetta 或模擬，速度較慢
-- [ ] 不需附資料檔：seed 以固定亂數於容器啟動時產生合成資料（內容雜湊可重現）
-- [ ] App 容器可連主機 Ollama；文件說明 GPU 直通的取捨
-- [ ] GitHub Actions：建置、單元測試、AST 驗證攻擊集、離線護欄測試全部通過；需要真實模型的評估不放在 CI
+- [x] `docker compose up` 後 App + SQL Server 可用，並自動建庫與灌入合成資料
+- [x] Compose 服務拆分：`sqlserver`（`MSSQL_PID=Express`、`ACCEPT_EULA=Y`、healthcheck）→ `seed`（一次性，等 sqlserver 健康後執行，完成即退出）→ `web`（`depends_on` seed 成功完成）。使用者指令是 `docker compose up`，不是 `docker run`
+- [x] `.env.example`：列出 SA 密碼與 geo_reader 密碼欄位，使用者複製成 `.env` 填值；`.env` 不 commit。註解寫明 SA 密碼複雜度規則（至少 8 碼，含大小寫、數字、符號），不符時容器啟動失敗
+- [x] 連線字串與金鑰走環境變數（`ConnectionStrings__Reader` 等；seed 已載入環境變數來源）。compose 一律提供 Reader，程式本身維持選填，本機 M1 路徑不受影響
+- [x] seed 的管理連線（目前以 Windows 驗證連 master）改為可由環境變數覆蓋，容器內改用 SA 帳密；**先確認這點再寫 compose**
+- [x] Ollama 做成 compose 的選用 profile，預設不啟動
+- [x] README 快速開始：`cp .env.example .env` → 填密碼 → `docker compose up` → 開瀏覽器。註明 SQL Server Linux 映像只有 amd64，Apple Silicon 需 Rosetta 或模擬，速度較慢
+- [x] 不需附資料檔：seed 以固定亂數於容器啟動時產生合成資料（內容雜湊可重現）
+- [x] App 容器可連主機 Ollama；文件說明 GPU 直通的取捨（連線已實測，見 §12.3；`qwen2.5:3b` 在網頁上沒有得到有效回答，是 §9.5 已知的限制）
+- [x] GitHub Actions：建置、單元測試、AST 驗證攻擊集、離線護欄測試全部通過；需要真實模型的評估不放在 CI
 
 **M7｜收尾（約 4 人日）→ 打 `v1.0.0`**
 - [ ] README 含：架構圖、安全分層圖、評估結果表、攻擊結果表、已知限制、如何本機重現、費用說明
@@ -634,6 +634,38 @@ M5 的設計與每一步在 [m5-implementation-plan.md](m5-implementation-plan.m
 - 新題暴露的弱點只記錄、不修（不改提示詞、不補錯誤訊息），避免拿測試集調參數。
 - 資料庫在 S2 驗證時曾出現 1 次偶發逾時（錯誤 -2），正式輪次 0 次；原因沒有查出。
 - 標準答案由人寫、經資料庫驗證與作者審閱，仍可能有錯；凍結後若發現，只能以勘誤處理並以 `--replay` 重新計分。
+
+---
+
+## 12. M6 實測紀錄（2026-10-13）
+
+### 12.1 與本機不同的三個地方
+
+| 差異 | 結果與處理 |
+|---|---|
+| 換行 | Windows 全新 clone 時 `PromptBuilder.cs` 為 CRLF，離線測試有 2 項快照失敗，`eval --replay` 的快取鍵也會對不上，所以 v0.3.0 的重現說明在 Windows 全新 clone 上不成立。已加 `.gitattributes`（`* text=auto eol=lf`）修正（v0.3.1），CI 的 Windows 離線 job 持續守住 |
+| 定序 | 實測：Latin1 容器的 6 張表雜湊與中文定序版相同，但 `eval --replay` 結束代碼 1。雲端 55→47（少 8 題：J01、J02、J04、J06、J07、J10、J13、G09），本機 22→19（少 3 題：J01、J02、J06）。受影響的幾乎都是含中文地名的 J 類。compose 與 CI 因此設 `Chinese_Taiwan_Stroke_CI_AS`，不改提示詞（維持受測物不變） |
+| SQL Server 版本 | 本機是 2022 RTM，容器固定為 `2022-CU27-ubuntu-22.04`。資料庫測試 159 項在容器內全過（含 M3 的 `SpatialIndexPlanTests`），沒有看到最佳化器差異 |
+
+### 12.2 CI 結果
+
+- 三個 job 全綠：`offline`（ubuntu、windows）與 `integration`（compose）。整個流程約 3 分 19 秒，其中 `integration` 約 2 分 5 秒（目標是 15 分鐘內）。
+- `integration` 的紀錄：資料庫測試 159 項全過；`eval --replay` 的 6 份結果「與正式結果逐題相同」，模型實際呼叫 0 次。
+- 建置 CI 時遇到的三個問題，都是工作流程本身而非受測物：`docker compose wait` 對已結束的容器回 `no containers`，改為讀 seed 的結束代碼；Docker 的連接埠代理在應用尚未監聽時就接受連線，curl 收到 connection reset（結束代碼 56），`--retry` 不會重試，改用 `--retry-all-errors`。
+
+### 12.3 容器的端到端實測（主機 Ollama，`qwen2.5:3b`，0 費用）
+
+- 從零 `docker compose up --build`：seed 結束代碼 0，6 張表的筆數與雜湊與本機相同，`http://127.0.0.1:8080` 回 200；`SERVERPROPERTY('Collation')` 為 `Chinese_Taiwan_Stroke_CI_AS`。
+- 安全檢查：web 以非 root（uid 1654）執行；web 容器的環境變數沒有 SA 密碼；web 與 seed 映像的 `docker image inspect` 和 `docker history --no-trunc` 都找不到 SA 密碼；SQL Server 映像沒有宣告 `VOLUME`。
+- **容器連得到主機的 Ollama**：稽核表 `audit.QueryLog` 記到 `Provider=Ollama`、`ModelId=qwen2.5:3b`、模型呼叫 2 次、有輸入與輸出 token 數，所以請求確實走完 web → 主機 Ollama → 稽核。
+- **但 4 個問題（含「各行政區有幾座基地台？」「資料庫裡有多少位客戶？」）都沒有得到結果表**：模型沒有呼叫查詢工具（`toolsCalled` 為空），直接回答「查詢失敗」。這就是 §9.5 記錄的已知限制（`qwen2.5:3b` 在多工具情境會編造「查詢失敗」，Web 預設走雲端）。我沒有在主機上直接跑 Web 做對照，所以「與容器無關」是依據 §9.5 的推論，不是對照實驗。
+- 沒有測雲端模型的網頁問答（會用到作者的金鑰且計費），也沒有測 `--profile ollama` 與 SA 密碼不符規則時的錯誤訊息。
+
+### 12.4 限制（照實記錄）
+
+- 容器內的 SQL Server 只有 amd64；Apple Silicon 與 arm64 沒有實測。
+- CI 不呼叫模型，所以它證明的是「同一份快取、同一個資料庫會得到同樣的數字」，不證明模型今天仍然給出同樣的回答。
+- 容器內使用 GPU 只寫在文件，沒有實測。
 
 ---
 
