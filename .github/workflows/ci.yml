@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 離線測試：不需要資料庫、金鑰與模型。Windows 的 checkout 預設換行，用來守住 .gitattributes 的 LF 規則。
+  offline:
+    name: offline (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+      - run: dotnet test GeoNl2Sql.slnx --filter "Category!=Database" --verbosity normal
+
+  # 整合測試：用 compose 起 SQL Server + seed + web，再跑資料庫測試與評估重播。不呼叫任何模型。
+  integration:
+    name: integration (compose)
+    needs: offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      # 四個密碼每次隨機產生並遮蔽；格式符合 SQL Server 複雜度，且不含 ; ' " $ 與空白。
+      - name: 產生 .env 與主機端連線字串
+        run: |
+          gen() { p="Aa1$(openssl rand -hex 12)"; echo "::add-mask::$p" >&2; echo "$p"; }
+          SA=$(gen); RD=$(gen); PII=$(gen); AUD=$(gen)
+          {
+            echo "MSSQL_SA_PASSWORD=$SA"
+            echo "GEO_READER_PASSWORD=$RD"
+            echo "GEO_READER_PII_PASSWORD=$PII"
+            echo "GEO_AUDITOR_PASSWORD=$AUD"
+            echo "MODEL_PROVIDER=Ollama"
+            echo "MODEL_ID=none"
+          } > .env
+          # 資料庫測試與 eval --replay 從主機連 compose 對外的 127.0.0.1,14333
+          base="Server=127.0.0.1,14333;Database=GeoNl2SqlDemo;TrustServerCertificate=True"
+          {
+            echo "ConnectionStrings__Reader=$base;User ID=geo_reader;Password=$RD"
+            echo "ConnectionStrings__ReaderPii=$base;User ID=geo_reader_pii;Password=$PII"
+            echo "ConnectionStrings__Auditor=$base;User ID=geo_auditor;Password=$AUD"
+            echo "ConnectionStrings__Demo=$base;User ID=sa;Password=$SA"
+          } >> "$GITHUB_ENV"
+
+      - name: 啟動 compose（sqlserver → seed → web）
+        run: docker compose up -d --build
+
+      - name: 等 seed 以結束代碼 0 結束、web 回 200
+        run: |
+          code=$(docker compose wait seed)
+          echo "seed exit code: $code"
+          test "$code" = "0"
+          curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-connrefused \
+            --output /dev/null http://127.0.0.1:8080/
+
+      - name: 資料庫測試
+        run: dotnet test GeoNl2Sql.slnx --filter "Category=Database" --verbosity normal
+
+      # 結束代碼 0 = 6 份結果與公布的逐題相同；只用快取，0 次模型呼叫
+      - name: 評估重播
+        run: dotnet run --project eval/GeoNl2Sql.Eval -c Release -- eval --replay
+
+      - name: 失敗時輸出容器紀錄
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: 清除容器
+        if: always()
+        run: docker compose down -v
