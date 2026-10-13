@@ -659,7 +659,8 @@ M5 的設計與每一步在 [m5-implementation-plan.md](m5-implementation-plan.m
 - 安全檢查：web 以非 root（uid 1654）執行；web 容器的環境變數沒有 SA 密碼；web 與 seed 映像的 `docker image inspect` 和 `docker history --no-trunc` 都找不到 SA 密碼；SQL Server 映像沒有宣告 `VOLUME`。
 - **容器連得到主機的 Ollama**：稽核表 `audit.QueryLog` 記到 `Provider=Ollama`、`ModelId=qwen2.5:3b`、模型呼叫 2 次、有輸入與輸出 token 數，所以請求確實走完 web → 主機 Ollama → 稽核。
 - **但 4 個問題（含「各行政區有幾座基地台？」「資料庫裡有多少位客戶？」）都沒有得到結果表**：模型沒有呼叫查詢工具（`toolsCalled` 為空），直接回答「查詢失敗」。這就是 §9.5 記錄的已知限制（`qwen2.5:3b` 在多工具情境會編造「查詢失敗」，Web 預設走雲端）。我沒有在主機上直接跑 Web 做對照，所以「與容器無關」是依據 §9.5 的推論，不是對照實驗。
-- 沒有測雲端模型的網頁問答（會用到作者的金鑰且計費），也沒有測 `--profile ollama` 與 SA 密碼不符規則時的錯誤訊息。
+- **雲端模型（`claude-haiku-4-5`）的網頁問答正常**：3 題都呼叫了工具並回傳結果表——「各行政區有幾座基地台？」（9 區，合計 200 座，與 seed 的基地台數相符）、「列出基地台最多的前三個行政區」（中央區 32、南湖區 27、丘陵區 25，與上一題一致）、「離中央區行政區中心最近的 3 座基地台在哪裡？」（先呼叫 `get_district_centroid` 再 `query_database`，回傳 3 列與 `geoJson`）。第 3 題的距離數字沒有另外核對。這次沒有查雲端問答的稽核紀錄（容器已先移除）。
+- 沒有測 `--profile ollama` 與 SA 密碼不符規則時的錯誤訊息。
 
 ### 12.4 限制（照實記錄）
 
