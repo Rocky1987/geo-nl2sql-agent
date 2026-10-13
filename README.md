@@ -8,6 +8,8 @@
 
 本專案的資料皆為合成資料，不涉及任何真實客戶或公司。
 
+![網頁畫面：左側輸入問題與選擇角色，右側為地圖，下方為回答](docs/images/web-demo.png)
+
 ## 這是什麼
 
 電信業者的基地台、客戶、訂閱方案與故障紀錄，通常放在資料庫裡，要查東西得會寫 SQL。這個平台讓人直接用日常中文提問，系統自己把問題變成查詢、取回結果，再用文字說明，並把位置畫在地圖上。例如：
@@ -441,6 +443,8 @@ MIT
 Ask enterprise geographic data questions in plain language and get answers as text, tables and a map. The query path is guarded by several layers: the model never sees personal data, cannot change any data, and every request leaves a tamper-proof record.
 
 All data in this project is synthetic; no real customer or company is involved.
+
+![The web page: ask a question and pick a role on the left, map on the right, answer below](docs/images/web-demo.png)
 
 ### What is this
 
