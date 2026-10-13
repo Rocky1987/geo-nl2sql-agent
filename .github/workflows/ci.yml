@@ -74,7 +74,7 @@ jobs:
           code=$(docker inspect -f '{{.State.ExitCode}}' "$cid")
           echo "seed exit code: $code"
           test "$code" = "0"
-          curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-connrefused \
+          curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors \
             --output /dev/null http://127.0.0.1:8080/
 
       - name: 資料庫測試
