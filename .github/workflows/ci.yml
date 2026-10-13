@@ -68,7 +68,10 @@ jobs:
 
       - name: 等 seed 以結束代碼 0 結束、web 回 200
         run: |
-          code=$(docker compose wait seed)
+          # up -d 回來時 seed 已結束（web 依賴它成功完成），wait 對已結束的容器會回 no containers，改讀結束代碼
+          cid=$(docker compose ps -aq seed)
+          test -n "$cid"
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$cid")
           echo "seed exit code: $code"
           test "$code" = "0"
           curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-connrefused \
