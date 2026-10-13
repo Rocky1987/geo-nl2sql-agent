@@ -660,7 +660,7 @@ M5 的設計與每一步在 [m5-implementation-plan.md](m5-implementation-plan.m
 - **容器連得到主機的 Ollama**：稽核表 `audit.QueryLog` 記到 `Provider=Ollama`、`ModelId=qwen2.5:3b`、模型呼叫 2 次、有輸入與輸出 token 數，所以請求確實走完 web → 主機 Ollama → 稽核。
 - **但 4 個問題（含「各行政區有幾座基地台？」「資料庫裡有多少位客戶？」）都沒有得到結果表**：模型沒有呼叫查詢工具（`toolsCalled` 為空），直接回答「查詢失敗」。這就是 §9.5 記錄的已知限制（`qwen2.5:3b` 在多工具情境會編造「查詢失敗」，Web 預設走雲端）。我沒有在主機上直接跑 Web 做對照，所以「與容器無關」是依據 §9.5 的推論，不是對照實驗。
 - **雲端模型（`claude-haiku-4-5`）的網頁問答正常**：3 題都呼叫了工具並回傳結果表——「各行政區有幾座基地台？」（9 區，合計 200 座，與 seed 的基地台數相符）、「列出基地台最多的前三個行政區」（中央區 32、南湖區 27、丘陵區 25，與上一題一致）、「離中央區行政區中心最近的 3 座基地台在哪裡？」（先呼叫 `get_district_centroid` 再 `query_database`，回傳 3 列與 `geoJson`）。第 3 題的距離數字沒有另外核對。這次沒有查雲端問答的稽核紀錄（容器已先移除）。
-- 沒有測 `--profile ollama` 與 SA 密碼不符規則時的錯誤訊息。
+- 沒有測 `--profile ollama` 與 SA 密碼不符規則時的錯誤訊息（M7 已補測，見 §13.1）。
 
 ### 12.4 限制（照實記錄）
 
@@ -669,6 +669,18 @@ M5 的設計與每一步在 [m5-implementation-plan.md](m5-implementation-plan.m
 - 容器內使用 GPU 只寫在文件，沒有實測。
 
 ---
+
+## 13. M7 實測紀錄（2026-10-13）
+
+### 13.1 S1：M6 遺留項目補驗
+
+| 項目 | 結果 |
+|---|---|
+| `docker compose --profile ollama up` | 從零啟動，`OLLAMA_ENDPOINT=http://ollama:11434`；`docker compose exec ollama ollama pull qwen2.5:3b` 在本機約 3 分鐘完成（約 1.9 GB）。web 連得到容器內的 Ollama，一題（「各行政區有幾座基地台？」）約 10 秒回覆，內容仍是「查詢失敗」（§9.5 已知限制：模型沒有呼叫工具）；稽核表記下這次呼叫（`Provider=Ollama`、`ModelCalls=2`、輸入 1,951、輸出 54 token）。 |
+| SA 密碼不符規則 | `MSSQL_SA_PASSWORD=abc`：`sqlserver` 容器以代碼 255 結束，日誌的訊息是「Unable to set system administrator password: Password validation failed. The password does not meet SQL Server password policy requirements because it is too short. The password must be at least 8 characters.」；使用者看到的是 sqlserver 結束、其餘服務沒有啟動，要看日誌才知道原因。 |
+| 雲端網頁問答的稽核 | `claude-haiku-4-5`，兩題。「列出基地台最多的前三個行政區」：呼叫 `query_database`，3 次模型呼叫，輸入 7,371、輸出 221 token，4.3 秒，結果中央區 32、南湖區 27、丘陵區 25。「中央區半徑 2 公里內有哪些基地台？」：呼叫 `get_district_centroid` 與 `buffer_around_point`，3 次模型呼叫，輸入 9,054、輸出 284 token，4.1 秒；回答 BS-0041 距質心 623 公尺、BS-0170 距 653 公尺，與 M6 §12.3 的前兩個距離相同（該次的第三座 2,002 公尺在 2,000 公尺範圍之外，這次不在結果中）。 |
+| 網頁每題費用 | 依 Haiku 4.5 公開價格（輸入 1 美元、輸出 5 美元／百萬 token）：第一題約 0.0085 美元、第二題約 0.0105 美元，**每題約 0.01 美元**。 |
+| CI 的 Node.js 20 警告 | `actions/checkout` v4.3.1、`actions/setup-dotnet` v4.3.1 的 `action.yml` 為 `node20`；改為 `checkout` v7.0.1、`setup-dotnet` v6.0.0（皆 `node24`），仍以 SHA 固定。 |
 
 ## 附錄：資料來源與實測依據
 
