@@ -1,0 +1,9 @@
+.git
+.vs
+**/bin
+**/obj
+.env
+.env.*
+eval/GeoNl2Sql.Eval/Results
+docs
+tools/bin

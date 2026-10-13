@@ -484,6 +484,7 @@ $RECYCLE.BIN/
 # --- geo-nl2sql-agent: secrets and local data (public repo!) ---
 .env
 .env.*
+!.env.example
 appsettings.*.local.json
 secrets.json
 *.bak

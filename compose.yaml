@@ -1,0 +1,50 @@
+# sqlserver（healthy）→ seed（重建資料庫後結束，代碼 0）→ web。
+# 資料庫不掛 volume：seed 每次 up 都以固定種子重建（見 docs/m6-implementation-plan.md §2.3）。
+# 連接埠只綁 127.0.0.1：網頁沒有登入，且會用你的金鑰呼叫雲端模型。
+
+x-conn: &conn
+  ConnectionStrings__Reader: Server=sqlserver;Database=GeoNl2SqlDemo;User ID=geo_reader;Password=${GEO_READER_PASSWORD:?請在 .env 設定 GEO_READER_PASSWORD};TrustServerCertificate=True
+  ConnectionStrings__ReaderPii: Server=sqlserver;Database=GeoNl2SqlDemo;User ID=geo_reader_pii;Password=${GEO_READER_PII_PASSWORD:?請在 .env 設定 GEO_READER_PII_PASSWORD};TrustServerCertificate=True
+  ConnectionStrings__Auditor: Server=sqlserver;Database=GeoNl2SqlDemo;User ID=geo_auditor;Password=${GEO_AUDITOR_PASSWORD:?請在 .env 設定 GEO_AUDITOR_PASSWORD};TrustServerCertificate=True
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Express
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?請在 .env 設定 MSSQL_SA_PASSWORD}
+      # 評估數字依賴此定序（Linux 映像預設是 Latin1，不帶 N 的中文字串會變成 ???）
+      MSSQL_COLLATION: Chinese_Taiwan_Stroke_CI_AS
+    ports: ["127.0.0.1:14333:1433"]
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null
+      interval: 5s
+      retries: 30
+
+  seed:
+    build: { context: ., target: seed }
+    depends_on: { sqlserver: { condition: service_healthy } }
+    environment:
+      <<: *conn
+      ConnectionStrings__Demo: Server=sqlserver;Database=GeoNl2SqlDemo;User ID=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+
+  web:
+    build: { context: ., target: web }
+    depends_on: { seed: { condition: service_completed_successfully } }
+    ports: ["127.0.0.1:8080:8080"]
+    environment:
+      <<: *conn
+      Model__Provider: ${MODEL_PROVIDER:-Anthropic}
+      Model__ModelId: ${MODEL_ID:-claude-haiku-4-5}
+      Model__ApiKey: ${MODEL_API_KEY:-}
+      Model__OllamaEndpoint: ${OLLAMA_ENDPOINT:-http://host.docker.internal:11434}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  ollama:
+    image: ollama/ollama:0.40.3
+    profiles: [ollama]
+    volumes: [ollama:/root/.ollama]
+
+volumes:
+  ollama: {}
